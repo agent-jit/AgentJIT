@@ -1,8 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"os"
 
+	"github.com/anthropics/agentjit/internal/config"
+	"github.com/anthropics/agentjit/internal/ingest"
 	"github.com/spf13/cobra"
 )
 
@@ -11,8 +13,17 @@ var ingestCmd = &cobra.Command{
 	Short:  "Receive hook JSON on stdin and forward to daemon",
 	Hidden: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] ingest not yet implemented")
-		return nil
+		paths, err := config.DefaultPaths()
+		if err != nil {
+			return err
+		}
+
+		cfg, err := config.Load(paths.Config)
+		if err != nil {
+			cfg = config.DefaultConfig()
+		}
+
+		return ingest.IngestFromReader(os.Stdin, paths, cfg)
 	},
 }
 
