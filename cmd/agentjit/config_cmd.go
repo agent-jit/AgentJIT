@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/anthropics/agentjit/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +19,29 @@ var configGetCmd = &cobra.Command{
 	Use:   "get [key]",
 	Short: "Get a config value",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] config get not yet implemented")
+		paths, err := config.DefaultPaths()
+		if err != nil {
+			return err
+		}
+		cfg, err := config.Load(paths.Config)
+		if err != nil {
+			return fmt.Errorf("loading config: %w", err)
+		}
+
+		if configAll || len(args) == 0 {
+			data, err := json.MarshalIndent(cfg, "", "  ")
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(data))
+			return nil
+		}
+
+		val, err := config.GetField(cfg, args[0])
+		if err != nil {
+			return err
+		}
+		fmt.Println(val)
 		return nil
 	},
 }
@@ -27,7 +51,27 @@ var configSetCmd = &cobra.Command{
 	Short: "Set a config value",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] config set not yet implemented")
+		paths, err := config.DefaultPaths()
+		if err != nil {
+			return err
+		}
+		cfg, err := config.Load(paths.Config)
+		if err != nil {
+			return fmt.Errorf("loading config: %w", err)
+		}
+
+		updated, err := config.SetField(cfg, args[0], args[1])
+		if err != nil {
+			return err
+		}
+
+		if err := paths.EnsureDirs(); err != nil {
+			return fmt.Errorf("creating config directory: %w", err)
+		}
+		if err := config.Save(paths.Config, updated); err != nil {
+			return fmt.Errorf("saving config: %w", err)
+		}
+		fmt.Printf("[AgentJIT] Set %s = %s\n", args[0], args[1])
 		return nil
 	},
 }
@@ -36,7 +80,17 @@ var configResetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Reset configuration to defaults",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] config reset not yet implemented")
+		paths, err := config.DefaultPaths()
+		if err != nil {
+			return err
+		}
+		if err := paths.EnsureDirs(); err != nil {
+			return fmt.Errorf("creating config directory: %w", err)
+		}
+		if err := config.Save(paths.Config, config.DefaultConfig()); err != nil {
+			return fmt.Errorf("saving config: %w", err)
+		}
+		fmt.Println("[AgentJIT] Config reset to defaults")
 		return nil
 	},
 }
