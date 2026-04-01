@@ -16,5 +16,5 @@ lint:
 clean:
 	rm -f $(BIN)
 
-install:
-	go install $(CMD)
+install: build
+	mv $(BIN) /usr/local/bin/$(BIN)
