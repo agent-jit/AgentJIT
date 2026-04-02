@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -105,22 +106,24 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 	}
 	fmt.Printf("%d bytes\n", len(context))
 
-	// 4. Build prompt
+	// 4. Build prompt template with config values substituted
 	prompt, err := BuildPrompt(promptPath, cfg, paths.Skills)
 	if err != nil {
 		return fmt.Errorf("building prompt: %w", err)
 	}
 
-	// 5. Write context to temp file
-	tmpFile, err := os.CreateTemp("", "agentjit-dream-*.jsonl")
-	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
+	// 5. Write context and compiled prompt to persistent files
+	contextPath := filepath.Join(paths.Root, "dream-context.jsonl")
+	if err := os.WriteFile(contextPath, []byte(context), 0644); err != nil {
+		return fmt.Errorf("writing context: %w", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.WriteString(context)
-	tmpFile.Close()
 
-	// 6. Invoke Claude from home directory so session is discoverable everywhere
+	compiledPromptPath := filepath.Join(paths.Root, "dream-prompt.md")
+	if err := os.WriteFile(compiledPromptPath, []byte(prompt), 0644); err != nil {
+		return fmt.Errorf("writing compiled prompt: %w", err)
+	}
+
+	// 6. Invoke Claude as an interactive session the user can attach to
 	homeDir, _ := os.UserHomeDir()
 	sessionID := uuid.New().String()
 	fmt.Printf("[AgentJIT] Starting dream compilation (%d events, %d existing skills)\n",
@@ -129,18 +132,20 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 	fmt.Printf("[AgentJIT] Attach from another terminal:\n")
 	fmt.Printf("  cd ~ && claude --resume %s\n", sessionID)
 
+	userPrompt := fmt.Sprintf(
+		"Read your instructions from %s then read the execution logs and skills inventory from %s — execute the full dream compiler workflow as described in the instructions. Write generated skills to %s.",
+		compiledPromptPath, contextPath, paths.Skills)
+
 	cmd := exec.Command("claude",
 		"--print",
 		"--session-id", sessionID,
 		"--name", "agentjit-dream",
-		"-p", prompt,
 		"--allowedTools", "Read,Write,Bash,Glob,Grep",
+		"--add-dir", paths.Root,
 		"--add-dir", paths.Skills,
+		"-p", userPrompt,
 	)
 	cmd.Dir = homeDir
-
-	contextData, _ := os.ReadFile(tmpFile.Name())
-	cmd.Stdin = strings.NewReader(string(contextData))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
