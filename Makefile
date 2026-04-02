@@ -5,10 +5,10 @@ CMD      := ./cmd/agentjit
 .PHONY: build test lint clean install
 
 build:
-	go build -o $(BIN) $(CMD)
+	CGO_ENABLED=0 go build -o $(BIN) $(CMD)
 
 test:
-	go test ./...
+	CGO_ENABLED=0 go test ./...
 
 lint:
 	golangci-lint run ./...
