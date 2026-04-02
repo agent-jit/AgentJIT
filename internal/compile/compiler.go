@@ -148,14 +148,9 @@ func summarizeSession(filePath, date string) SessionSummary {
 	return summary
 }
 
-// BuildPrompt reads the compiler prompt template and replaces config variables.
-func BuildPrompt(promptPath string, cfg config.Config, globalSkillsDir string) (string, error) {
-	data, err := os.ReadFile(promptPath)
-	if err != nil {
-		return "", fmt.Errorf("reading prompt: %w", err)
-	}
-
-	prompt := string(data)
+// BuildPrompt takes a prompt template string and replaces config variables.
+func BuildPrompt(promptTemplate string, cfg config.Config, globalSkillsDir string) string {
+	prompt := promptTemplate
 
 	replacements := map[string]string{
 		"{{MIN_PATTERN_FREQUENCY}}":    strconv.Itoa(cfg.Compile.MinPatternFrequency),
@@ -169,11 +164,11 @@ func BuildPrompt(promptPath string, cfg config.Config, globalSkillsDir string) (
 		prompt = strings.ReplaceAll(prompt, key, val)
 	}
 
-	return prompt, nil
+	return prompt
 }
 
 // RunCompile executes the full compilation sequence.
-func RunCompile(paths config.Paths, cfg config.Config, promptPath string) error {
+func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) error {
 	start := time.Now()
 
 	// 1. Build manifest
@@ -197,10 +192,7 @@ func RunCompile(paths config.Paths, cfg config.Config, promptPath string) error 
 	fmt.Printf("%d skills\n", len(existingSkills))
 
 	// 3. Build prompt template with config values substituted
-	prompt, err := BuildPrompt(promptPath, cfg, paths.Skills)
-	if err != nil {
-		return fmt.Errorf("building prompt: %w", err)
-	}
+	prompt := BuildPrompt(promptTemplate, cfg, paths.Skills)
 
 	// 4. Write manifest and compiled prompt to files
 	manifestData, _ := json.MarshalIndent(manifest, "", "  ")

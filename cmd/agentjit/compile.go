@@ -2,11 +2,10 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/anthropics/agentjit/internal/compile"
 	"github.com/anthropics/agentjit/internal/config"
+	"github.com/anthropics/agentjit/prompts"
 	"github.com/spf13/cobra"
 )
 
@@ -24,24 +23,7 @@ var compileCmd = &cobra.Command{
 			return fmt.Errorf("loading config: %w", err)
 		}
 
-		// Find the compiler prompt
-		exe, err := os.Executable()
-		if err != nil {
-			return fmt.Errorf("finding executable: %w", err)
-		}
-		promptPath := filepath.Join(filepath.Dir(exe), "prompts", "compiler.md")
-
-		// Fallback: check relative to working directory
-		if _, err := os.Stat(promptPath); os.IsNotExist(err) {
-			cwd, _ := os.Getwd()
-			promptPath = filepath.Join(cwd, "prompts", "compiler.md")
-		}
-
-		if _, err := os.Stat(promptPath); os.IsNotExist(err) {
-			return fmt.Errorf("compiler prompt not found at %s — run from the aj project directory or install properly", promptPath)
-		}
-
-		return compile.RunCompile(paths, cfg, promptPath)
+		return compile.RunCompile(paths, cfg, prompts.Compiler)
 	},
 }
 

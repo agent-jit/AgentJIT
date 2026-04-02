@@ -1,0 +1,38 @@
+version: 2
+
+project_name: aj
+
+builds:
+  - main: ./cmd/agentjit
+    binary: aj
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/anthropics/agentjit/internal/version.Version={{.Version}}
+
+archives:
+  - format: tar.gz
+    name_template: "aj_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "aj_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+release:
+  owner: agent-jit
+  name: AgentJIT
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"

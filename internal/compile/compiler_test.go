@@ -108,14 +108,9 @@ func TestBuildManifestJSON(t *testing.T) {
 func TestBuildPrompt(t *testing.T) {
 	cfg := config.DefaultConfig()
 
-	dir := t.TempDir()
-	promptPath := dir + "/compiler.md"
-	os.WriteFile(promptPath, []byte("Template with {{MIN_PATTERN_FREQUENCY}} and {{GLOBAL_SKILLS_DIR}}"), 0644)
+	template := "Template with {{MIN_PATTERN_FREQUENCY}} and {{GLOBAL_SKILLS_DIR}}"
 
-	prompt, err := BuildPrompt(promptPath, cfg, "/home/user/.aj/skills")
-	if err != nil {
-		t.Fatalf("BuildPrompt: %v", err)
-	}
+	prompt := BuildPrompt(template, cfg, "/home/user/.aj/skills")
 
 	if strings.Contains(prompt, "{{MIN_PATTERN_FREQUENCY}}") {
 		t.Error("template variable not replaced")
@@ -128,11 +123,11 @@ func TestBuildPrompt(t *testing.T) {
 	}
 }
 
-func TestBuildPromptMissingFile(t *testing.T) {
+func TestBuildPromptEmpty(t *testing.T) {
 	cfg := config.DefaultConfig()
 
-	_, err := BuildPrompt("/nonexistent/path/prompt.md", cfg, "/tmp/skills")
-	if err == nil {
-		t.Error("expected error for missing prompt file")
+	prompt := BuildPrompt("", cfg, "/tmp/skills")
+	if prompt != "" {
+		t.Error("expected empty prompt for empty template")
 	}
 }
