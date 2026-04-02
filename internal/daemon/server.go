@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -24,9 +26,10 @@ type Server struct {
 	eventCount  atomic.Int64
 	lastEvent   atomic.Int64 // unix timestamp of last event
 	stopCh      chan struct{}
-	stopOnce    sync.Once
-	wg          sync.WaitGroup
-	idleTimeout time.Duration
+	skillWatcher *Watcher
+	stopOnce     sync.Once
+	wg           sync.WaitGroup
+	idleTimeout  time.Duration
 }
 
 // NewServer creates a new daemon server.
@@ -51,6 +54,38 @@ func (s *Server) Start() error {
 	}
 	s.listener = listener
 	s.lastEvent.Store(time.Now().Unix())
+
+	// Skill file watcher
+	watchDirs := []string{s.paths.Skills}
+	watcher, err := NewWatcher(watchDirs, func(path string) {
+		skillDir := filepath.Dir(path)
+		skillName := filepath.Base(skillDir)
+
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			log.Printf("[AgentJIT] Compiled skill: '%s'\n", skillName)
+			return
+		}
+		content := string(data)
+
+		savings := "unknown"
+		for _, line := range strings.Split(content, "\n") {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "savings_per_invocation:") {
+				savings = strings.TrimSpace(strings.TrimPrefix(trimmed, "savings_per_invocation:"))
+				break
+			}
+		}
+
+		log.Printf("[AgentJIT] Compiled skill: '%s'. Estimated savings: %s tokens/invocation.\n",
+			skillName, savings)
+	})
+	if err != nil {
+		log.Printf("[AgentJIT] Could not start skill watcher: %v", err)
+	} else {
+		s.skillWatcher = watcher
+		go watcher.Start()
+	}
 
 	// Accept connections
 	go func() {
@@ -106,6 +141,9 @@ func (s *Server) Stop() {
 		close(s.stopCh)
 		if s.listener != nil {
 			s.listener.Close()
+		}
+		if s.skillWatcher != nil {
+			s.skillWatcher.Stop()
 		}
 	})
 	s.wg.Wait()
