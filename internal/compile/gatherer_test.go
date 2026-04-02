@@ -1,4 +1,4 @@
-package dream
+package compile
 
 import (
 	"encoding/json"
@@ -48,7 +48,7 @@ func TestGatherUnprocessedLogs(t *testing.T) {
 
 	// Set marker to before t2 but after t1
 	marker := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
-	WriteMarker(paths.DreamMarker, marker)
+	WriteMarker(paths.CompileMarker, marker)
 
 	events, err := GatherUnprocessedLogs(paths, 50000)
 	if err != nil {

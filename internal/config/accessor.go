@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// GetField retrieves a value from Config by dot-notation key (e.g. "dream.trigger_mode").
+// GetField retrieves a value from Config by dot-notation key (e.g. "compile.trigger_mode").
 func GetField(cfg Config, key string) (interface{}, error) {
 	data, err := json.Marshal(cfg)
 	if err != nil {
@@ -21,7 +21,7 @@ func GetField(cfg Config, key string) (interface{}, error) {
 
 	parts := strings.SplitN(key, ".", 2)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid key %q: must be section.field (e.g. dream.trigger_mode)", key)
+		return nil, fmt.Errorf("invalid key %q: must be section.field (e.g. compile.trigger_mode)", key)
 	}
 
 	section, ok := m[parts[0]]

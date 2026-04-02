@@ -4,7 +4,7 @@
 
 **Goal:** Build the event ingestion pipeline — from Claude Code hook payloads arriving on stdin, through normalization, to JSONL files on disk. Then implement hook installation into Claude Code settings.
 
-**Architecture:** The `agentjit ingest` command reads JSON from stdin, normalizes it into our schema, and writes to date/session-partitioned JSONL files. Hook installation reads/merges JSON into Claude Code's settings.json without clobbering existing hooks.
+**Architecture:** The `aj ingest` command reads JSON from stdin, normalizes it into our schema, and writes to date/session-partitioned JSONL files. Hook installation reads/merges JSON into Claude Code's settings.json without clobbering existing hooks.
 
 **Tech Stack:** Go, standard library (encoding/json, os, bufio, time)
 
@@ -190,7 +190,7 @@ import (
 	"time"
 )
 
-// Event is the normalized AgentJIT event schema.
+// Event is the normalized AJ event schema.
 type Event struct {
 	Timestamp           time.Time              `json:"timestamp"`
 	SessionID           string                 `json:"session_id"`
@@ -740,8 +740,8 @@ func init() {
 Run:
 ```bash
 go build -o agentjit ./cmd/agentjit/
-echo '{"session_id":"manual_test","hook_event_name":"PostToolUse","cwd":"/tmp","tool_name":"Bash","tool_input":{"command":"echo hi"}}' | ./agentjit ingest
-ls ~/.agentjit/logs/
+echo '{"session_id":"manual_test","hook_event_name":"PostToolUse","cwd":"/tmp","tool_name":"Bash","tool_input":{"command":"echo hi"}}' | ./aj ingest
+ls ~/.aj/logs/
 ```
 Expected: A date directory with `manual_test.jsonl` inside
 
@@ -777,7 +777,7 @@ import (
 )
 
 func TestHookTemplates(t *testing.T) {
-	hooks := AgentJITHooks()
+	hooks := AJHooks()
 
 	if len(hooks) != 4 {
 		t.Fatalf("expected 4 hook events, got %d", len(hooks))
@@ -901,7 +901,7 @@ func TestUninstallHooks(t *testing.T) {
 	existing := `{
 		"hooks": {
 			"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "echo existing"}]}],
-			"PostToolUse": [{"hooks": [{"type": "command", "command": "agentjit ingest", "async": true}]}]
+			"PostToolUse": [{"hooks": [{"type": "command", "command": "aj ingest", "async": true}]}]
 		},
 		"model": "opus"
 	}`
@@ -917,12 +917,12 @@ func TestUninstallHooks(t *testing.T) {
 
 	hooksMap := settings["hooks"].(map[string]interface{})
 
-	// AgentJIT hooks should be removed
+	// AJ hooks should be removed
 	if _, ok := hooksMap["PostToolUse"]; ok {
 		t.Error("PostToolUse should have been removed")
 	}
 
-	// Existing non-AgentJIT hooks preserved
+	// Existing non-AJ hooks preserved
 	if _, ok := hooksMap["PreToolUse"]; !ok {
 		t.Error("PreToolUse should have been preserved")
 	}
@@ -959,42 +959,42 @@ type MatcherGroup struct {
 	Hooks   []HookHandler `json:"hooks"`
 }
 
-// AgentJITHooks returns the hook configuration for all AgentJIT hook events.
-func AgentJITHooks() map[string][]MatcherGroup {
+// AJHooks returns the hook configuration for all AJ hook events.
+func AJHooks() map[string][]MatcherGroup {
 	return map[string][]MatcherGroup{
 		"PostToolUse": {
 			{
 				Hooks: []HookHandler{
-					{Type: "command", Command: "agentjit ingest", Async: true},
+					{Type: "command", Command: "aj ingest", Async: true},
 				},
 			},
 		},
 		"PostToolUseFailure": {
 			{
 				Hooks: []HookHandler{
-					{Type: "command", Command: "agentjit ingest", Async: true},
+					{Type: "command", Command: "aj ingest", Async: true},
 				},
 			},
 		},
 		"SessionStart": {
 			{
 				Hooks: []HookHandler{
-					{Type: "command", Command: "agentjit daemon start --if-not-running && agentjit ingest"},
+					{Type: "command", Command: "aj daemon start --if-not-running && aj ingest"},
 				},
 			},
 		},
 		"SessionEnd": {
 			{
 				Hooks: []HookHandler{
-					{Type: "command", Command: "agentjit ingest", Async: true},
+					{Type: "command", Command: "aj ingest", Async: true},
 				},
 			},
 		},
 	}
 }
 
-// isAgentJITHook checks if a hook handler belongs to AgentJIT.
-func isAgentJITHook(command string) bool {
+// isAJHook checks if a hook handler belongs to AJ.
+func isAJHook(command string) bool {
 	return len(command) >= 14 && (command[:14] == "agentjit inges" || command[:14] == "agentjit daemo")
 }
 ```
@@ -1013,9 +1013,9 @@ import (
 	"path/filepath"
 )
 
-// InstallHooks merges AgentJIT hooks into the given Claude Code settings file.
+// InstallHooks merges AJ hooks into the given Claude Code settings file.
 // Creates the file if it doesn't exist. Preserves existing hooks and settings.
-// Idempotent — skips events where AgentJIT hooks are already present.
+// Idempotent — skips events where AJ hooks are already present.
 func InstallHooks(settingsPath string) error {
 	settings, err := readSettings(settingsPath)
 	if err != nil {
@@ -1027,13 +1027,13 @@ func InstallHooks(settingsPath string) error {
 		hooksObj = make(map[string]interface{})
 	}
 
-	agentjitHooks := AgentJITHooks()
+	agentjitHooks := AJHooks()
 
 	for event, groups := range agentjitHooks {
 		existing, _ := hooksObj[event].([]interface{})
 
-		// Check if AgentJIT hooks already present
-		if hasAgentJITHooks(existing) {
+		// Check if AJ hooks already present
+		if hasAJHooks(existing) {
 			continue
 		}
 
@@ -1051,8 +1051,8 @@ func InstallHooks(settingsPath string) error {
 	return writeSettings(settingsPath, settings)
 }
 
-// UninstallHooks removes AgentJIT hooks from the given Claude Code settings file.
-// Preserves all non-AgentJIT hooks and settings.
+// UninstallHooks removes AJ hooks from the given Claude Code settings file.
+// Preserves all non-AJ hooks and settings.
 func UninstallHooks(settingsPath string) error {
 	settings, err := readSettings(settingsPath)
 	if err != nil {
@@ -1083,19 +1083,19 @@ func UninstallHooks(settingsPath string) error {
 				continue
 			}
 
-			hasAgentJIT := false
+			hasAJ := false
 			for _, h := range handlers {
 				hm, ok := h.(map[string]interface{})
 				if !ok {
 					continue
 				}
 				cmd, _ := hm["command"].(string)
-				if isAgentJITHook(cmd) {
-					hasAgentJIT = true
+				if isAJHook(cmd) {
+					hasAJ = true
 					break
 				}
 			}
-			if !hasAgentJIT {
+			if !hasAJ {
 				kept = append(kept, g)
 			}
 		}
@@ -1116,7 +1116,7 @@ func UninstallHooks(settingsPath string) error {
 	return writeSettings(settingsPath, settings)
 }
 
-func hasAgentJITHooks(groups []interface{}) bool {
+func hasAJHooks(groups []interface{}) bool {
 	for _, g := range groups {
 		groupMap, ok := g.(map[string]interface{})
 		if !ok {
@@ -1132,7 +1132,7 @@ func hasAgentJITHooks(groups []interface{}) bool {
 				continue
 			}
 			cmd, _ := hm["command"].(string)
-			if isAgentJITHook(cmd) {
+			if isAJHook(cmd) {
 				return true
 			}
 		}
@@ -1197,7 +1197,7 @@ var initLocal bool
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize AgentJIT and install Claude Code hooks",
+	Short: "Initialize AJ and install Claude Code hooks",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		paths, err := config.DefaultPaths()
 		if err != nil {
@@ -1205,7 +1205,7 @@ var initCmd = &cobra.Command{
 		}
 
 		// 1. Create directories
-		fmt.Println("[AgentJIT] Initializing...")
+		fmt.Println("[AJ] Initializing...")
 		fmt.Println()
 		fmt.Println("1. Creating directories")
 		if err := paths.EnsureDirs(); err != nil {
@@ -1262,15 +1262,15 @@ var initCmd = &cobra.Command{
 		}
 
 		fmt.Println()
-		fmt.Println("[AgentJIT] Ready. Hooks will activate on your next Claude Code session.")
-		fmt.Println("[AgentJIT] Run 'agentjit bootstrap' to import historical sessions.")
+		fmt.Println("[AJ] Ready. Hooks will activate on your next Claude Code session.")
+		fmt.Println("[AJ] Run 'aj bootstrap' to import historical sessions.")
 		return nil
 	},
 }
 
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "Remove AgentJIT hooks and optionally delete data",
+	Short: "Remove AJ hooks and optionally delete data",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Uninstall global hooks
 		settingsPath, err := config.ClaudeSettingsGlobal()
@@ -1280,14 +1280,14 @@ var uninstallCmd = &cobra.Command{
 		if err := hooks.UninstallHooks(settingsPath); err != nil {
 			return fmt.Errorf("removing hooks: %w", err)
 		}
-		fmt.Printf("[AgentJIT] Hooks removed from %s\n", settingsPath)
+		fmt.Printf("[AJ] Hooks removed from %s\n", settingsPath)
 
 		paths, err := config.DefaultPaths()
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("[AgentJIT] Data directory at %s was not removed. Delete manually if desired.\n", paths.Root)
+		fmt.Printf("[AJ] Data directory at %s was not removed. Delete manually if desired.\n", paths.Root)
 		return nil
 	},
 }
@@ -1304,7 +1304,7 @@ func init() {
 Run:
 ```bash
 go build -o agentjit ./cmd/agentjit/
-./agentjit init --help
+./aj init --help
 ```
 Expected: Help text showing --local flag
 

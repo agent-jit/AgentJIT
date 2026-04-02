@@ -4,7 +4,7 @@
 
 **Goal:** Set up the Go project with module, directory structure, configuration system, path helpers, and a working CLI skeleton with all subcommands stubbed.
 
-**Architecture:** Single Go binary using cobra for CLI. Config is a JSON file at `~/.agentjit/config.json` with typed Go structs and sensible defaults. Path helpers centralize all filesystem path logic.
+**Architecture:** Single Go binary using cobra for CLI. Config is a JSON file at `~/.aj/config.json` with typed Go structs and sensible defaults. Path helpers centralize all filesystem path logic.
 
 **Tech Stack:** Go 1.22+, cobra (CLI), standard library (encoding/json, os, path/filepath)
 
@@ -49,20 +49,20 @@ import (
 	"path/filepath"
 )
 
-// Paths holds all filesystem paths used by AgentJIT.
+// Paths holds all filesystem paths used by AJ.
 type Paths struct {
-	Root       string // ~/.agentjit
-	Config     string // ~/.agentjit/config.json
-	Logs       string // ~/.agentjit/logs
-	Skills     string // ~/.agentjit/skills
-	PID        string // ~/.agentjit/daemon.pid
-	Socket     string // ~/.agentjit/daemon.sock
-	DreamLog   string // ~/.agentjit/dream-log.jsonl
-	DreamMarker string // ~/.agentjit/last_dream_marker
-	BootstrapProcessed string // ~/.agentjit/bootstrap_processed.json
+	Root       string // ~/.aj
+	Config     string // ~/.aj/config.json
+	Logs       string // ~/.aj/logs
+	Skills     string // ~/.aj/skills
+	PID        string // ~/.aj/daemon.pid
+	Socket     string // ~/.aj/daemon.sock
+	CompileLog   string // ~/.aj/compile-log.jsonl
+	CompileMarker string // ~/.aj/last_compile_marker
+	BootstrapProcessed string // ~/.aj/bootstrap_processed.json
 }
 
-// DefaultPaths returns Paths rooted at ~/.agentjit.
+// DefaultPaths returns Paths rooted at ~/.aj.
 func DefaultPaths() (Paths, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -82,8 +82,8 @@ func PathsFromRoot(root string) Paths {
 		Skills:             filepath.Join(root, "skills"),
 		PID:                filepath.Join(root, "daemon.pid"),
 		Socket:             filepath.Join(root, "daemon.sock"),
-		DreamLog:           filepath.Join(root, "dream-log.jsonl"),
-		DreamMarker:        filepath.Join(root, "last_dream_marker"),
+		CompileLog:           filepath.Join(root, "compile-log.jsonl"),
+		CompileMarker:        filepath.Join(root, "last_compile_marker"),
 		BootstrapProcessed: filepath.Join(root, "bootstrap_processed.json"),
 	}
 }
@@ -154,7 +154,7 @@ type IngestionConfig struct {
 	LogRetentionDays int `json:"log_retention_days"`
 }
 
-type DreamConfig struct {
+type CompileConfig struct {
 	TriggerMode           string `json:"trigger_mode"`
 	TriggerIntervalMinutes int   `json:"trigger_interval_minutes"`
 	TriggerEventThreshold  int   `json:"trigger_event_threshold"`
@@ -172,7 +172,7 @@ type ScopeConfig struct {
 type Config struct {
 	Daemon    DaemonConfig    `json:"daemon"`
 	Ingestion IngestionConfig `json:"ingestion"`
-	Dream     DreamConfig     `json:"dream"`
+	Dream     CompileConfig     `json:"dream"`
 	Scope     ScopeConfig     `json:"scope"`
 }
 
@@ -185,7 +185,7 @@ func DefaultConfig() Config {
 			MaxResponseBytes: 512,
 			LogRetentionDays: 30,
 		},
-		Dream: DreamConfig{
+		Dream: CompileConfig{
 			TriggerMode:            "manual",
 			TriggerIntervalMinutes: 30,
 			TriggerEventThreshold:  100,
@@ -463,7 +463,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "agentjit",
 	Short: "Background JIT compiler for autonomous coding agents",
-	Long:  "AgentJIT silently ingests agent execution telemetry, identifies recurring patterns, and compiles them into parameterized skills.",
+	Long:  "AJ silently ingests agent execution telemetry, identifies recurring patterns, and compiles them into parameterized skills.",
 }
 
 func Execute() {
@@ -503,18 +503,18 @@ var initLocal bool
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize AgentJIT and install Claude Code hooks",
+	Short: "Initialize AJ and install Claude Code hooks",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] init not yet implemented")
+		fmt.Println("[AJ] init not yet implemented")
 		return nil
 	},
 }
 
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "Remove AgentJIT hooks and optionally delete data",
+	Short: "Remove AJ hooks and optionally delete data",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] uninstall not yet implemented")
+		fmt.Println("[AJ] uninstall not yet implemented")
 		return nil
 	},
 }
@@ -541,25 +541,25 @@ import (
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
-	Short: "Manage the AgentJIT daemon",
+	Short: "Manage the AJ daemon",
 }
 
 var ifNotRunning bool
 
 var daemonStartCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start the AgentJIT daemon",
+	Short: "Start the AJ daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] daemon start not yet implemented")
+		fmt.Println("[AJ] daemon start not yet implemented")
 		return nil
 	},
 }
 
 var daemonStopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stop the AgentJIT daemon",
+	Short: "Stop the AJ daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] daemon stop not yet implemented")
+		fmt.Println("[AJ] daemon stop not yet implemented")
 		return nil
 	},
 }
@@ -568,7 +568,7 @@ var daemonStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show daemon status",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] daemon status not yet implemented")
+		fmt.Println("[AJ] daemon status not yet implemented")
 		return nil
 	},
 }
@@ -597,7 +597,7 @@ var dreamCmd = &cobra.Command{
 	Use:   "dream",
 	Short: "Trigger the JIT compilation/reflection phase",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] dream not yet implemented")
+		fmt.Println("[AJ] dream not yet implemented")
 		return nil
 	},
 }
@@ -628,7 +628,7 @@ var bootstrapCmd = &cobra.Command{
 	Use:   "bootstrap",
 	Short: "Import historical Claude Code transcripts into logs",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] bootstrap not yet implemented")
+		fmt.Println("[AJ] bootstrap not yet implemented")
 		return nil
 	},
 }
@@ -658,14 +658,14 @@ var configAll bool
 
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "View or modify AgentJIT configuration",
+	Short: "View or modify AJ configuration",
 }
 
 var configGetCmd = &cobra.Command{
 	Use:   "get [key]",
 	Short: "Get a config value",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] config get not yet implemented")
+		fmt.Println("[AJ] config get not yet implemented")
 		return nil
 	},
 }
@@ -675,7 +675,7 @@ var configSetCmd = &cobra.Command{
 	Short: "Set a config value",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] config set not yet implemented")
+		fmt.Println("[AJ] config set not yet implemented")
 		return nil
 	},
 }
@@ -684,7 +684,7 @@ var configResetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Reset configuration to defaults",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] config reset not yet implemented")
+		fmt.Println("[AJ] config reset not yet implemented")
 		return nil
 	},
 }
@@ -718,7 +718,7 @@ var skillsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List generated skills with ROI metrics",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] skills list not yet implemented")
+		fmt.Println("[AJ] skills list not yet implemented")
 		return nil
 	},
 }
@@ -728,7 +728,7 @@ var skillsRemoveCmd = &cobra.Command{
 	Short: "Remove a generated skill and deregister it",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] skills remove not yet implemented")
+		fmt.Println("[AJ] skills remove not yet implemented")
 		return nil
 	},
 }
@@ -757,7 +757,7 @@ var ingestCmd = &cobra.Command{
 	Short:  "Receive hook JSON on stdin and forward to daemon",
 	Hidden: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] ingest not yet implemented")
+		fmt.Println("[AJ] ingest not yet implemented")
 		return nil
 	},
 }
@@ -774,9 +774,9 @@ Run:
 cd /Users/pc/web3/agentjit
 go build -o agentjit ./cmd/agentjit/
 ./agentjit --help
-./agentjit daemon --help
-./agentjit config --help
-./agentjit skills --help
+./aj daemon --help
+./aj config --help
+./aj skills --help
 ```
 Expected: Help text for all commands with subcommands listed
 
@@ -833,7 +833,7 @@ import (
 func TestGetField(t *testing.T) {
 	cfg := DefaultConfig()
 
-	val, err := GetField(cfg, "dream.trigger_mode")
+	val, err := GetField(cfg, "compile.trigger_mode")
 	if err != nil {
 		t.Fatalf("GetField: %v", err)
 	}
@@ -866,12 +866,12 @@ func TestGetFieldInvalid(t *testing.T) {
 func TestSetField(t *testing.T) {
 	cfg := DefaultConfig()
 
-	updated, err := SetField(cfg, "dream.trigger_mode", "interval")
+	updated, err := SetField(cfg, "compile.trigger_mode", "interval")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
 
-	val, _ := GetField(updated, "dream.trigger_mode")
+	val, _ := GetField(updated, "compile.trigger_mode")
 	if val != "interval" {
 		t.Errorf("after SetField, got %q, want interval", val)
 	}
@@ -911,7 +911,7 @@ import (
 	"strings"
 )
 
-// GetField retrieves a value from Config by dot-notation key (e.g. "dream.trigger_mode").
+// GetField retrieves a value from Config by dot-notation key (e.g. "compile.trigger_mode").
 func GetField(cfg Config, key string) (interface{}, error) {
 	data, err := json.Marshal(cfg)
 	if err != nil {
@@ -925,7 +925,7 @@ func GetField(cfg Config, key string) (interface{}, error) {
 
 	parts := strings.SplitN(key, ".", 2)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("invalid key %q: must be section.field (e.g. dream.trigger_mode)", key)
+		return nil, fmt.Errorf("invalid key %q: must be section.field (e.g. compile.trigger_mode)", key)
 	}
 
 	section, ok := m[parts[0]]
@@ -1029,7 +1029,7 @@ var configAll bool
 
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "View or modify AgentJIT configuration",
+	Short: "View or modify AJ configuration",
 }
 
 var configGetCmd = &cobra.Command{
@@ -1085,7 +1085,7 @@ var configSetCmd = &cobra.Command{
 		if err := config.Save(paths.Config, updated); err != nil {
 			return fmt.Errorf("saving config: %w", err)
 		}
-		fmt.Printf("[AgentJIT] Set %s = %s\n", args[0], args[1])
+		fmt.Printf("[AJ] Set %s = %s\n", args[0], args[1])
 		return nil
 	},
 }
@@ -1101,7 +1101,7 @@ var configResetCmd = &cobra.Command{
 		if err := config.Save(paths.Config, config.DefaultConfig()); err != nil {
 			return fmt.Errorf("saving config: %w", err)
 		}
-		fmt.Println("[AgentJIT] Config reset to defaults")
+		fmt.Println("[AJ] Config reset to defaults")
 		return nil
 	},
 }
@@ -1118,7 +1118,7 @@ func init() {
 Run:
 ```bash
 go build -o agentjit ./cmd/agentjit/
-./agentjit config get --all
+./aj config get --all
 ```
 Expected: Prints default config JSON
 

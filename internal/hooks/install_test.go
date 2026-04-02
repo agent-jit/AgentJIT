@@ -8,7 +8,7 @@ import (
 )
 
 func TestHookTemplates(t *testing.T) {
-	hooks := AgentJITHooks()
+	hooks := AJHooks()
 
 	if len(hooks) != 4 {
 		t.Fatalf("expected 4 hook events, got %d", len(hooks))
@@ -132,7 +132,7 @@ func TestUninstallHooks(t *testing.T) {
 	existing := `{
 		"hooks": {
 			"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "echo existing"}]}],
-			"PostToolUse": [{"hooks": [{"type": "command", "command": "agentjit ingest", "async": true}]}]
+			"PostToolUse": [{"hooks": [{"type": "command", "command": "aj ingest", "async": true}]}]
 		},
 		"model": "opus"
 	}`
@@ -148,12 +148,12 @@ func TestUninstallHooks(t *testing.T) {
 
 	hooksMap := settings["hooks"].(map[string]interface{})
 
-	// AgentJIT hooks should be removed
+	// AJ hooks should be removed
 	if _, ok := hooksMap["PostToolUse"]; ok {
 		t.Error("PostToolUse should have been removed")
 	}
 
-	// Existing non-AgentJIT hooks preserved
+	// Existing non-AJ hooks preserved
 	if _, ok := hooksMap["PreToolUse"]; !ok {
 		t.Error("PreToolUse should have been preserved")
 	}

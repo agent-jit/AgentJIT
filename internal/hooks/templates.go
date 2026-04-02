@@ -13,41 +13,41 @@ type MatcherGroup struct {
 	Hooks   []HookHandler `json:"hooks"`
 }
 
-// AgentJITHooks returns the hook configuration for all AgentJIT hook events.
-func AgentJITHooks() map[string][]MatcherGroup {
+// AJHooks returns the hook configuration for all AJ hook events.
+func AJHooks() map[string][]MatcherGroup {
 	return map[string][]MatcherGroup{
 		"PostToolUse": {
 			{
 				Hooks: []HookHandler{
-					{Type: "command", Command: "agentjit ingest", Async: true},
+					{Type: "command", Command: "aj ingest", Async: true},
 				},
 			},
 		},
 		"PostToolUseFailure": {
 			{
 				Hooks: []HookHandler{
-					{Type: "command", Command: "agentjit ingest", Async: true},
+					{Type: "command", Command: "aj ingest", Async: true},
 				},
 			},
 		},
 		"SessionStart": {
 			{
 				Hooks: []HookHandler{
-					{Type: "command", Command: "agentjit daemon start --if-not-running && agentjit ingest"},
+					{Type: "command", Command: "aj daemon start --if-not-running && aj ingest"},
 				},
 			},
 		},
 		"SessionEnd": {
 			{
 				Hooks: []HookHandler{
-					{Type: "command", Command: "agentjit ingest", Async: true},
+					{Type: "command", Command: "aj ingest", Async: true},
 				},
 			},
 		},
 	}
 }
 
-// isAgentJITHook checks if a hook handler belongs to AgentJIT.
-func isAgentJITHook(command string) bool {
-	return len(command) >= 14 && (command[:14] == "agentjit inges" || command[:14] == "agentjit daemo")
+// isAJHook checks if a hook handler belongs to AJ.
+func isAJHook(command string) bool {
+	return len(command) >= 9 && (command[:9] == "aj ingest" || command[:9] == "aj daemon")
 }

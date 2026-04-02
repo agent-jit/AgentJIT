@@ -28,7 +28,7 @@ var skillsListCmd = &cobra.Command{
 		}
 
 		if len(skillsList) == 0 {
-			fmt.Println("[AgentJIT] No skills generated yet. Run 'agentjit dream' to compile patterns.")
+			fmt.Println("[AJ] No skills generated yet. Run 'aj compile' to compile patterns.")
 			return nil
 		}
 
@@ -58,7 +58,7 @@ var skillsRemoveCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("[AgentJIT] Removed skill: %s\n", args[0])
+		fmt.Printf("[AJ] Removed skill: %s\n", args[0])
 		return nil
 	},
 }

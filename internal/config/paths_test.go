@@ -7,26 +7,26 @@ import (
 )
 
 func TestPathsFromRoot(t *testing.T) {
-	p := PathsFromRoot("/tmp/agentjit-test")
+	p := PathsFromRoot("/tmp/aj-test")
 
-	if p.Root != "/tmp/agentjit-test" {
-		t.Errorf("Root = %q, want /tmp/agentjit-test", p.Root)
+	if p.Root != "/tmp/aj-test" {
+		t.Errorf("Root = %q, want /tmp/aj-test", p.Root)
 	}
-	if p.Config != "/tmp/agentjit-test/config.json" {
+	if p.Config != "/tmp/aj-test/config.json" {
 		t.Errorf("Config = %q, want config.json", p.Config)
 	}
-	if p.PID != "/tmp/agentjit-test/daemon.pid" {
+	if p.PID != "/tmp/aj-test/daemon.pid" {
 		t.Errorf("PID = %q, want daemon.pid", p.PID)
 	}
-	if p.Socket != "/tmp/agentjit-test/daemon.sock" {
+	if p.Socket != "/tmp/aj-test/daemon.sock" {
 		t.Errorf("Socket = %q, want daemon.sock", p.Socket)
 	}
 }
 
 func TestSessionLogFile(t *testing.T) {
-	p := PathsFromRoot("/tmp/agentjit-test")
+	p := PathsFromRoot("/tmp/aj-test")
 	got := p.SessionLogFile("2026-04-01", "cld_abc123")
-	want := "/tmp/agentjit-test/logs/2026-04-01/cld_abc123.jsonl"
+	want := "/tmp/aj-test/logs/2026-04-01/cld_abc123.jsonl"
 	if got != want {
 		t.Errorf("SessionLogFile = %q, want %q", got, want)
 	}

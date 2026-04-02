@@ -1,4 +1,4 @@
-package dream
+package compile
 
 import (
 	"encoding/json"
@@ -112,7 +112,7 @@ func TestBuildPrompt(t *testing.T) {
 	promptPath := dir + "/compiler.md"
 	os.WriteFile(promptPath, []byte("Template with {{MIN_PATTERN_FREQUENCY}} and {{GLOBAL_SKILLS_DIR}}"), 0644)
 
-	prompt, err := BuildPrompt(promptPath, cfg, "/home/user/.agentjit/skills")
+	prompt, err := BuildPrompt(promptPath, cfg, "/home/user/.aj/skills")
 	if err != nil {
 		t.Fatalf("BuildPrompt: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestBuildPrompt(t *testing.T) {
 	if !strings.Contains(prompt, "3") {
 		t.Error("expected min_pattern_frequency default of 3")
 	}
-	if !strings.Contains(prompt, "/home/user/.agentjit/skills") {
+	if !strings.Contains(prompt, "/home/user/.aj/skills") {
 		t.Error("expected global skills dir to be substituted")
 	}
 }

@@ -12,8 +12,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Daemon.IdleTimeoutMinutes != 30 {
 		t.Errorf("IdleTimeoutMinutes = %d, want 30", cfg.Daemon.IdleTimeoutMinutes)
 	}
-	if cfg.Dream.TriggerMode != "manual" {
-		t.Errorf("TriggerMode = %q, want manual", cfg.Dream.TriggerMode)
+	if cfg.Compile.TriggerMode != "manual" {
+		t.Errorf("TriggerMode = %q, want manual", cfg.Compile.TriggerMode)
 	}
 	if cfg.Ingestion.MaxResponseBytes != 512 {
 		t.Errorf("MaxResponseBytes = %d, want 512", cfg.Ingestion.MaxResponseBytes)
@@ -28,8 +28,8 @@ func TestLoadNonExistent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load nonexistent: %v", err)
 	}
-	if cfg.Dream.TriggerMode != "manual" {
-		t.Errorf("expected default config, got TriggerMode = %q", cfg.Dream.TriggerMode)
+	if cfg.Compile.TriggerMode != "manual" {
+		t.Errorf("expected default config, got TriggerMode = %q", cfg.Compile.TriggerMode)
 	}
 }
 
@@ -38,8 +38,8 @@ func TestSaveAndLoad(t *testing.T) {
 	path := filepath.Join(dir, "config.json")
 
 	cfg := DefaultConfig()
-	cfg.Dream.TriggerMode = "interval"
-	cfg.Dream.TriggerIntervalMinutes = 15
+	cfg.Compile.TriggerMode = "interval"
+	cfg.Compile.TriggerIntervalMinutes = 15
 
 	if err := Save(path, cfg); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -50,11 +50,11 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if loaded.Dream.TriggerMode != "interval" {
-		t.Errorf("TriggerMode = %q, want interval", loaded.Dream.TriggerMode)
+	if loaded.Compile.TriggerMode != "interval" {
+		t.Errorf("TriggerMode = %q, want interval", loaded.Compile.TriggerMode)
 	}
-	if loaded.Dream.TriggerIntervalMinutes != 15 {
-		t.Errorf("TriggerIntervalMinutes = %d, want 15", loaded.Dream.TriggerIntervalMinutes)
+	if loaded.Compile.TriggerIntervalMinutes != 15 {
+		t.Errorf("TriggerIntervalMinutes = %d, want 15", loaded.Compile.TriggerIntervalMinutes)
 	}
 	// Verify defaults are preserved for unmodified fields
 	if loaded.Daemon.IdleTimeoutMinutes != 30 {
@@ -66,8 +66,8 @@ func TestLoadPartialJSON(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
 
-	// Write a partial config — only dream section
-	partial := []byte(`{"dream": {"trigger_mode": "event_count"}}`)
+	// Write a partial config — only compile section
+	partial := []byte(`{"compile": {"trigger_mode": "event_count"}}`)
 	if err := os.WriteFile(path, partial, 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -77,12 +77,12 @@ func TestLoadPartialJSON(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if cfg.Dream.TriggerMode != "event_count" {
-		t.Errorf("TriggerMode = %q, want event_count", cfg.Dream.TriggerMode)
+	if cfg.Compile.TriggerMode != "event_count" {
+		t.Errorf("TriggerMode = %q, want event_count", cfg.Compile.TriggerMode)
 	}
 	// Since Load() starts from DefaultConfig() and json.Unmarshal only
 	// overwrites fields present in the JSON, unspecified fields within
-	// the dream section retain their defaults, and other sections are
+	// the compile section retain their defaults, and other sections are
 	// completely untouched.
 	if cfg.Daemon.IdleTimeoutMinutes != 30 {
 		t.Errorf("IdleTimeoutMinutes = %d, want 30 (default preserved)", cfg.Daemon.IdleTimeoutMinutes)

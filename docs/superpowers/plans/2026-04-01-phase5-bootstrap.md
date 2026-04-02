@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the `agentjit bootstrap` command that imports historical Claude Code session transcripts into AgentJIT's JSONL log format, giving the dream compiler data to work with before any hooks have fired.
+**Goal:** Build the `aj bootstrap` command that imports historical Claude Code session transcripts into AJ's JSONL log format, giving the compiler data to work with before any hooks have fired.
 
-**Architecture:** The bootstrap command locates Claude Code transcript JSONL files under `~/.claude/projects/`, parses them to extract tool use events (the transcripts are JSONL with structured message objects), normalizes those events into our schema, and writes them to `~/.agentjit/logs/`. A processed-files tracker prevents re-processing.
+**Architecture:** The bootstrap command locates Claude Code transcript JSONL files under `~/.claude/projects/`, parses them to extract tool use events (the transcripts are JSONL with structured message objects), normalizes those events into our schema, and writes them to `~/.aj/logs/`. A processed-files tracker prevents re-processing.
 
 **Tech Stack:** Go, standard library (encoding/json, os, path/filepath, bufio, time)
 
@@ -154,7 +154,7 @@ type toolResultBlock struct {
 }
 
 // ParseTranscript reads a Claude Code transcript JSONL file and extracts
-// tool use events into the normalized AgentJIT event schema.
+// tool use events into the normalized AJ event schema.
 func ParseTranscript(path string, maxResponseBytes int) ([]ingest.Event, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -449,7 +449,7 @@ type BootstrapResult struct {
 }
 
 // RunBootstrap scans Claude Code transcripts and imports tool use events into
-// AgentJIT's log format. Tracks processed files to avoid re-importing.
+// AJ's log format. Tracks processed files to avoid re-importing.
 func RunBootstrap(paths config.Paths, cfg config.Config, claudeProjectsDir string, opts BootstrapOptions) (BootstrapResult, error) {
 	var result BootstrapResult
 
@@ -643,7 +643,7 @@ var bootstrapCmd = &cobra.Command{
 		}
 
 		if bootstrapDryRun {
-			fmt.Println("[AgentJIT] Dry run — no files will be written")
+			fmt.Println("[AJ] Dry run — no files will be written")
 		}
 
 		result, err := bootstrap.RunBootstrap(paths, cfg, claudeProjectsDir, opts)
@@ -652,15 +652,15 @@ var bootstrapCmd = &cobra.Command{
 		}
 
 		if result.SessionsProcessed == 0 {
-			fmt.Println("[AgentJIT] No new sessions to import")
+			fmt.Println("[AJ] No new sessions to import")
 			return nil
 		}
 
-		fmt.Printf("[AgentJIT] Bootstrapped %d sessions (%d events)\n",
+		fmt.Printf("[AJ] Bootstrapped %d sessions (%d events)\n",
 			result.SessionsProcessed, result.EventsImported)
 
 		if !bootstrapDryRun {
-			fmt.Print("[AgentJIT] Run dream compilation now? [Y/n] ")
+			fmt.Print("[AJ] Run compilation now? [Y/n] ")
 			reader := bufio.NewReader(os.Stdin)
 			answer, _ := reader.ReadString('\n')
 			answer = strings.TrimSpace(strings.ToLower(answer))
@@ -688,7 +688,7 @@ func init() {
 Run:
 ```bash
 go build -o agentjit ./cmd/agentjit/
-./agentjit bootstrap --dry-run
+./aj bootstrap --dry-run
 ```
 Expected: Lists sessions found or "No new sessions to import"
 

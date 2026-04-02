@@ -1,4 +1,4 @@
-package dream
+package compile
 
 import (
 	"encoding/json"
@@ -27,7 +27,7 @@ type SessionSummary struct {
 	WorkingDirectory string   `json:"working_directory"`
 }
 
-// Manifest is the concise overview given to the dream compiler.
+// Manifest is the concise overview given to the compiler.
 type Manifest struct {
 	LogsDir       string           `json:"logs_dir"`
 	SkillsDir     string           `json:"skills_dir"`
@@ -40,7 +40,7 @@ type Manifest struct {
 // BuildManifest scans log directories and produces a lightweight manifest
 // instead of loading all events into memory.
 func BuildManifest(paths config.Paths) (Manifest, error) {
-	marker, _ := ReadMarker(paths.DreamMarker)
+	marker, _ := ReadMarker(paths.CompileMarker)
 
 	m := Manifest{
 		LogsDir:   paths.Logs,
@@ -158,9 +158,9 @@ func BuildPrompt(promptPath string, cfg config.Config, globalSkillsDir string) (
 	prompt := string(data)
 
 	replacements := map[string]string{
-		"{{MIN_PATTERN_FREQUENCY}}":    strconv.Itoa(cfg.Dream.MinPatternFrequency),
-		"{{MIN_TOKEN_SAVINGS}}":        strconv.Itoa(cfg.Dream.MinTokenSavings),
-		"{{DEPRECATE_AFTER_SESSIONS}}": strconv.Itoa(cfg.Dream.DeprecateAfterSessions),
+		"{{MIN_PATTERN_FREQUENCY}}":    strconv.Itoa(cfg.Compile.MinPatternFrequency),
+		"{{MIN_TOKEN_SAVINGS}}":        strconv.Itoa(cfg.Compile.MinTokenSavings),
+		"{{DEPRECATE_AFTER_SESSIONS}}": strconv.Itoa(cfg.Compile.DeprecateAfterSessions),
 		"{{GLOBAL_SKILLS_DIR}}":        globalSkillsDir,
 		"{{GLOBAL_CLI_TOOLS}}":         strings.Join(cfg.Scope.GlobalCLITools, ", "),
 	}
@@ -172,12 +172,12 @@ func BuildPrompt(promptPath string, cfg config.Config, globalSkillsDir string) (
 	return prompt, nil
 }
 
-// RunDream executes the full dream compilation sequence.
-func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
+// RunCompile executes the full compilation sequence.
+func RunCompile(paths config.Paths, cfg config.Config, promptPath string) error {
 	start := time.Now()
 
 	// 1. Build manifest
-	fmt.Print("[AgentJIT] Scanning logs... ")
+	fmt.Print("[AJ] Scanning logs... ")
 	manifest, err := BuildManifest(paths)
 	if err != nil {
 		return fmt.Errorf("building manifest: %w", err)
@@ -192,7 +192,7 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 		manifest.DateRange[0], manifest.DateRange[1])
 
 	// 2. Scan existing skills
-	fmt.Print("[AgentJIT] Scanning existing skills... ")
+	fmt.Print("[AJ] Scanning existing skills... ")
 	existingSkills, _ := skills.ScanSkillsDir(paths.Skills)
 	fmt.Printf("%d skills\n", len(existingSkills))
 
@@ -204,12 +204,12 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 
 	// 4. Write manifest and compiled prompt to files
 	manifestData, _ := json.MarshalIndent(manifest, "", "  ")
-	manifestPath := filepath.Join(paths.Root, "dream-manifest.json")
+	manifestPath := filepath.Join(paths.Root, "compile-manifest.json")
 	if err := os.WriteFile(manifestPath, manifestData, 0644); err != nil {
 		return fmt.Errorf("writing manifest: %w", err)
 	}
 
-	compiledPromptPath := filepath.Join(paths.Root, "dream-prompt.md")
+	compiledPromptPath := filepath.Join(paths.Root, "compile-prompt.md")
 	if err := os.WriteFile(compiledPromptPath, []byte(prompt), 0644); err != nil {
 		return fmt.Errorf("writing compiled prompt: %w", err)
 	}
@@ -217,9 +217,9 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 	// 5. Invoke Claude
 	homeDir, _ := os.UserHomeDir()
 	sessionID := uuid.New().String()
-	fmt.Printf("[AgentJIT] Starting dream compilation\n")
-	fmt.Printf("[AgentJIT] Session: %s\n", sessionID)
-	fmt.Printf("[AgentJIT] Attach from another terminal:\n")
+	fmt.Printf("[AJ] Starting compilation\n")
+	fmt.Printf("[AJ] Session: %s\n", sessionID)
+	fmt.Printf("[AJ] Attach from another terminal:\n")
 	fmt.Printf("  cd ~ && claude --resume %s\n", sessionID)
 
 	userPrompt := fmt.Sprintf(
@@ -233,7 +233,7 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 	cmd := exec.Command("claude",
 		"--print",
 		"--session-id", sessionID,
-		"--name", "agentjit-dream",
+		"--name", "aj-compile",
 		"--allowedTools", "Read,Write,Bash,Glob,Grep",
 		"--add-dir", paths.Root,
 		"--add-dir", paths.Skills,
@@ -249,11 +249,11 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 	}
 
 	// 6. Update marker
-	if err := WriteMarker(paths.DreamMarker, time.Now().UTC()); err != nil {
+	if err := WriteMarker(paths.CompileMarker, time.Now().UTC()); err != nil {
 		return fmt.Errorf("writing marker: %w", err)
 	}
 
 	elapsed := time.Since(start).Round(time.Second)
-	fmt.Printf("[AgentJIT] Dream compilation complete (%s)\n", elapsed)
+	fmt.Printf("[AJ] Compilation complete (%s)\n", elapsed)
 	return nil
 }

@@ -5,14 +5,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/anthropics/agentjit/internal/compile"
 	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/dream"
 	"github.com/spf13/cobra"
 )
 
-var dreamCmd = &cobra.Command{
-	Use:   "dream",
-	Short: "Trigger the JIT compilation/reflection phase",
+var compileCmd = &cobra.Command{
+	Use:   "compile",
+	Short: "Trigger the JIT compilation phase",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		paths, err := config.DefaultPaths()
 		if err != nil {
@@ -38,13 +38,13 @@ var dreamCmd = &cobra.Command{
 		}
 
 		if _, err := os.Stat(promptPath); os.IsNotExist(err) {
-			return fmt.Errorf("compiler prompt not found at %s — run from the agentjit project directory or install properly", promptPath)
+			return fmt.Errorf("compiler prompt not found at %s — run from the aj project directory or install properly", promptPath)
 		}
 
-		return dream.RunDream(paths, cfg, promptPath)
+		return compile.RunCompile(paths, cfg, promptPath)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(dreamCmd)
+	rootCmd.AddCommand(compileCmd)
 }

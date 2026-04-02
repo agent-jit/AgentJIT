@@ -15,7 +15,7 @@ var initLocal bool
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize AgentJIT and install Claude Code hooks",
+	Short: "Initialize AJ and install Claude Code hooks",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		paths, err := config.DefaultPaths()
 		if err != nil {
@@ -23,7 +23,7 @@ var initCmd = &cobra.Command{
 		}
 
 		// 1. Create directories
-		fmt.Println("[AgentJIT] Initializing...")
+		fmt.Println("[AJ] Initializing...")
 		fmt.Println()
 		fmt.Println("1. Creating directories")
 		if err := paths.EnsureDirs(); err != nil {
@@ -72,23 +72,23 @@ var initCmd = &cobra.Command{
 
 		// 4. Verify on PATH
 		fmt.Println()
-		fmt.Println("4. Verifying agentjit is on PATH")
-		if path, err := exec.LookPath("agentjit"); err == nil {
+		fmt.Println("4. Verifying aj is on PATH")
+		if path, err := exec.LookPath("aj"); err == nil {
 			fmt.Printf("   ✓ Found at %s\n", path)
 		} else {
-			fmt.Println("   ⚠ agentjit not found on PATH. Add it to use hooks.")
+			fmt.Println("   ⚠ aj not found on PATH. Add it to use hooks.")
 		}
 
 		fmt.Println()
-		fmt.Println("[AgentJIT] Ready. Hooks will activate on your next Claude Code session.")
-		fmt.Println("[AgentJIT] Run 'agentjit bootstrap' to import historical sessions.")
+		fmt.Println("[AJ] Ready. Hooks will activate on your next Claude Code session.")
+		fmt.Println("[AJ] Run 'aj bootstrap' to import historical sessions.")
 		return nil
 	},
 }
 
 var uninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "Remove AgentJIT hooks and optionally delete data",
+	Short: "Remove AJ hooks and optionally delete data",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Uninstall global hooks
 		settingsPath, err := config.ClaudeSettingsGlobal()
@@ -98,14 +98,14 @@ var uninstallCmd = &cobra.Command{
 		if err := hooks.UninstallHooks(settingsPath); err != nil {
 			return fmt.Errorf("removing hooks: %w", err)
 		}
-		fmt.Printf("[AgentJIT] Hooks removed from %s\n", settingsPath)
+		fmt.Printf("[AJ] Hooks removed from %s\n", settingsPath)
 
 		paths, err := config.DefaultPaths()
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("[AgentJIT] Data directory at %s was not removed. Delete manually if desired.\n", paths.Root)
+		fmt.Printf("[AJ] Data directory at %s was not removed. Delete manually if desired.\n", paths.Root)
 		return nil
 	},
 }

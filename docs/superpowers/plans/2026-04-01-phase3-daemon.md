@@ -402,7 +402,7 @@ func (s *Server) Start() error {
 				case <-s.stopCh:
 					return
 				default:
-					log.Printf("[AgentJIT] accept error: %v", err)
+					log.Printf("[AJ] accept error: %v", err)
 					continue
 				}
 			}
@@ -439,9 +439,9 @@ func (s *Server) LastEventTime() time.Time {
 	return time.Unix(ts, 0)
 }
 
-// EventsSinceDream returns the number of events since the counter was last reset.
+// EventsSinceCompile returns the number of events since the counter was last reset.
 // The dream trigger calls ResetEventCounter after firing.
-func (s *Server) EventsSinceDream() int64 {
+func (s *Server) EventsSinceCompile() int64 {
 	return s.eventCount.Load()
 }
 
@@ -461,12 +461,12 @@ func (s *Server) handleConn(conn net.Conn) {
 
 		event, err := ingest.NormalizeEvent(raw, s.cfg.Ingestion.MaxResponseBytes)
 		if err != nil {
-			log.Printf("[AgentJIT] normalize error: %v", err)
+			log.Printf("[AJ] normalize error: %v", err)
 			continue
 		}
 
 		if err := s.writer.Write(event); err != nil {
-			log.Printf("[AgentJIT] write error: %v", err)
+			log.Printf("[AJ] write error: %v", err)
 			continue
 		}
 
@@ -493,12 +493,12 @@ git commit -m "feat: add Unix socket server for event ingestion"
 ### Task 3: Implement Dream Trigger Monitor
 
 **Files:**
-- Create: `internal/dream/trigger.go`
-- Create: `internal/dream/trigger_test.go`
+- Create: `internal/compile/trigger.go`
+- Create: `internal/compile/trigger_test.go`
 
 - [ ] **Step 1: Write failing test for trigger evaluation**
 
-Create `internal/dream/trigger_test.go`:
+Create `internal/compile/trigger_test.go`:
 
 ```go
 package dream
@@ -580,12 +580,12 @@ func TestMarkFired(t *testing.T) {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `go test ./internal/dream/ -run TestManual -v`
+Run: `go test ./internal/compile/ -run TestManual -v`
 Expected: FAIL — package not found
 
 - [ ] **Step 3: Implement trigger logic**
 
-Create `internal/dream/trigger.go`:
+Create `internal/compile/trigger.go`:
 
 ```go
 package dream
@@ -597,9 +597,9 @@ import (
 	"github.com/anthropics/agentjit/internal/config"
 )
 
-// Trigger evaluates whether the dream compilation should fire.
+// Trigger evaluates whether the compilation should fire.
 type Trigger struct {
-	cfg           config.DreamConfig
+	cfg           config.CompileConfig
 	lastDreamTime time.Time
 	running       bool
 	mu            sync.Mutex
@@ -613,7 +613,7 @@ func NewTrigger(cfg config.Config) *Trigger {
 	}
 }
 
-// ShouldFire returns true if the dream sequence should be triggered
+// ShouldFire returns true if the compile sequence should be triggered
 // based on the current mode, event count since last dream, and current time.
 func (tr *Trigger) ShouldFire(eventsSinceDream int64, now time.Time) bool {
 	tr.mu.Lock()
@@ -660,13 +660,13 @@ func (tr *Trigger) IsRunning() bool {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `go test ./internal/dream/ -v`
+Run: `go test ./internal/compile/ -v`
 Expected: All PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/dream/trigger.go internal/dream/trigger_test.go
+git add internal/compile/trigger.go internal/compile/trigger_test.go
 git commit -m "feat: add dream trigger with manual/interval/event_count modes"
 ```
 
@@ -781,7 +781,7 @@ func (s *Server) Start() error {
 				case <-s.stopCh:
 					return
 				default:
-					log.Printf("[AgentJIT] accept error: %v", err)
+					log.Printf("[AJ] accept error: %v", err)
 					continue
 				}
 			}
@@ -801,7 +801,7 @@ func (s *Server) Start() error {
 			case <-ticker.C:
 				last := s.LastEventTime()
 				if !last.IsZero() && time.Since(last) > s.effectiveIdleTimeout() {
-					log.Println("[AgentJIT] Idle timeout reached, shutting down")
+					log.Println("[AJ] Idle timeout reached, shutting down")
 					s.Stop()
 					return
 				}
@@ -854,7 +854,7 @@ import (
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
-	Short: "Manage the AgentJIT daemon",
+	Short: "Manage the AJ daemon",
 }
 
 var ifNotRunning bool
@@ -862,7 +862,7 @@ var foreground bool
 
 var daemonStartCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start the AgentJIT daemon",
+	Short: "Start the AJ daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		paths, err := config.DefaultPaths()
 		if err != nil {
@@ -875,7 +875,7 @@ var daemonStartCmd = &cobra.Command{
 			pid, _ := daemon.ReadPID(paths.PID)
 			// Output context for SessionStart hook
 			ctx := map[string]string{
-				"additionalContext": fmt.Sprintf("[AgentJIT] Ingestion active. Daemon PID %d.", pid),
+				"additionalContext": fmt.Sprintf("[AJ] Ingestion active. Daemon PID %d.", pid),
 			}
 			data, _ := json.Marshal(ctx)
 			fmt.Println(string(data))
@@ -898,7 +898,7 @@ var daemonStartCmd = &cobra.Command{
 			if err := daemon.StartDaemonProcess(); err != nil {
 				return err
 			}
-			fmt.Println("[AgentJIT] Daemon started in background")
+			fmt.Println("[AJ] Daemon started in background")
 			return nil
 		}
 
@@ -914,14 +914,14 @@ var daemonStartCmd = &cobra.Command{
 		}
 
 		srv := daemon.NewServer(socketPath, paths, cfg)
-		fmt.Printf("[AgentJIT] Daemon started (PID %d)\n", os.Getpid())
+		fmt.Printf("[AJ] Daemon started (PID %d)\n", os.Getpid())
 		return srv.Start()
 	},
 }
 
 var daemonStopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stop the AgentJIT daemon",
+	Short: "Stop the AJ daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		paths, err := config.DefaultPaths()
 		if err != nil {
@@ -929,7 +929,7 @@ var daemonStopCmd = &cobra.Command{
 		}
 
 		if !daemon.IsRunning(paths.PID) {
-			fmt.Println("[AgentJIT] Daemon is not running")
+			fmt.Println("[AJ] Daemon is not running")
 			return nil
 		}
 
@@ -943,13 +943,13 @@ var daemonStopCmd = &cobra.Command{
 				proc.Signal(os.Interrupt)
 			}
 			daemon.RemovePID(paths.PID)
-			fmt.Println("[AgentJIT] Daemon stopped (via signal)")
+			fmt.Println("[AJ] Daemon stopped (via signal)")
 			return nil
 		}
 		conn.Write([]byte("SHUTDOWN\n"))
 		conn.Close()
 
-		fmt.Println("[AgentJIT] Daemon stopped")
+		fmt.Println("[AJ] Daemon stopped")
 		return nil
 	},
 }
@@ -964,12 +964,12 @@ var daemonStatusCmd = &cobra.Command{
 		}
 
 		if !daemon.IsRunning(paths.PID) {
-			fmt.Println("[AgentJIT] Daemon is not running")
+			fmt.Println("[AJ] Daemon is not running")
 			return nil
 		}
 
 		pid, _ := daemon.ReadPID(paths.PID)
-		fmt.Printf("[AgentJIT] Daemon running (PID %d)\n", pid)
+		fmt.Printf("[AJ] Daemon running (PID %d)\n", pid)
 		return nil
 	},
 }
@@ -987,8 +987,8 @@ func init() {
 Run:
 ```bash
 go build -o agentjit ./cmd/agentjit/
-./agentjit daemon status
-./agentjit daemon --help
+./aj daemon status
+./aj daemon --help
 ```
 Expected: "Daemon is not running", help shows start/stop/status
 

@@ -14,7 +14,7 @@ import (
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
-	Short: "Manage the AgentJIT daemon",
+	Short: "Manage the AJ daemon",
 }
 
 var ifNotRunning bool
@@ -22,7 +22,7 @@ var foreground bool
 
 var daemonStartCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start the AgentJIT daemon",
+	Short: "Start the AJ daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		paths, err := config.DefaultPaths()
 		if err != nil {
@@ -40,8 +40,8 @@ var daemonStartCmd = &cobra.Command{
 			// Output context for SessionStart hook
 			ctx := map[string]string{
 				"additionalContext": fmt.Sprintf(
-					"[AgentJIT] Ingestion active. Daemon PID %d. Dream mode: %s.",
-					pid, cfg.Dream.TriggerMode),
+					"[AJ] Ingestion active. Daemon PID %d. Compile mode: %s.",
+					pid, cfg.Compile.TriggerMode),
 			}
 			data, _ := json.Marshal(ctx)
 			fmt.Println(string(data))
@@ -64,7 +64,7 @@ var daemonStartCmd = &cobra.Command{
 			if err := daemon.StartDaemonProcess(); err != nil {
 				return err
 			}
-			fmt.Println("[AgentJIT] Daemon started in background")
+			fmt.Println("[AJ] Daemon started in background")
 			return nil
 		}
 
@@ -80,14 +80,14 @@ var daemonStartCmd = &cobra.Command{
 		}
 
 		srv := daemon.NewServer(socketPath, paths, cfg)
-		fmt.Printf("[AgentJIT] Daemon started (PID %d)\n", os.Getpid())
+		fmt.Printf("[AJ] Daemon started (PID %d)\n", os.Getpid())
 		return srv.Start()
 	},
 }
 
 var daemonStopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stop the AgentJIT daemon",
+	Short: "Stop the AJ daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		paths, err := config.DefaultPaths()
 		if err != nil {
@@ -95,7 +95,7 @@ var daemonStopCmd = &cobra.Command{
 		}
 
 		if !daemon.IsRunning(paths.PID) {
-			fmt.Println("[AgentJIT] Daemon is not running")
+			fmt.Println("[AJ] Daemon is not running")
 			return nil
 		}
 
@@ -109,13 +109,13 @@ var daemonStopCmd = &cobra.Command{
 				proc.Signal(os.Interrupt)
 			}
 			daemon.RemovePID(paths.PID)
-			fmt.Println("[AgentJIT] Daemon stopped (via signal)")
+			fmt.Println("[AJ] Daemon stopped (via signal)")
 			return nil
 		}
 		conn.Write([]byte("SHUTDOWN\n"))
 		conn.Close()
 
-		fmt.Println("[AgentJIT] Daemon stopped")
+		fmt.Println("[AJ] Daemon stopped")
 		return nil
 	},
 }
@@ -130,12 +130,12 @@ var daemonStatusCmd = &cobra.Command{
 		}
 
 		if !daemon.IsRunning(paths.PID) {
-			fmt.Println("[AgentJIT] Daemon is not running")
+			fmt.Println("[AJ] Daemon is not running")
 			return nil
 		}
 
 		pid, _ := daemon.ReadPID(paths.PID)
-		fmt.Printf("[AgentJIT] Daemon running (PID %d)\n", pid)
+		fmt.Printf("[AJ] Daemon running (PID %d)\n", pid)
 		return nil
 	},
 }

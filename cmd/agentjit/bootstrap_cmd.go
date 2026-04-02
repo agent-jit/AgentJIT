@@ -42,7 +42,7 @@ var bootstrapCmd = &cobra.Command{
 		}
 
 		if bootstrapDryRun {
-			fmt.Println("[AgentJIT] Dry run — no files will be written")
+			fmt.Println("[AJ] Dry run — no files will be written")
 		}
 
 		result, err := bootstrap.RunBootstrap(paths, cfg, claudeProjectsDir, opts)
@@ -51,21 +51,21 @@ var bootstrapCmd = &cobra.Command{
 		}
 
 		if result.SessionsProcessed == 0 {
-			fmt.Println("[AgentJIT] No new sessions to import")
+			fmt.Println("[AJ] No new sessions to import")
 			return nil
 		}
 
-		fmt.Printf("[AgentJIT] Bootstrapped %d sessions (%d events)\n",
+		fmt.Printf("[AJ] Bootstrapped %d sessions (%d events)\n",
 			result.SessionsProcessed, result.EventsImported)
 
 		if !bootstrapDryRun {
-			fmt.Print("[AgentJIT] Run dream compilation now? [Y/n] ")
+			fmt.Print("[AJ] Run compile now? [Y/n] ")
 			reader := bufio.NewReader(os.Stdin)
 			answer, _ := reader.ReadString('\n')
 			answer = strings.TrimSpace(strings.ToLower(answer))
 
 			if answer == "" || answer == "y" || answer == "yes" {
-				return dreamCmd.RunE(dreamCmd, nil)
+				return compileCmd.RunE(compileCmd, nil)
 			}
 		}
 

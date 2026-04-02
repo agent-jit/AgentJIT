@@ -15,7 +15,7 @@ type IngestionConfig struct {
 	LogRetentionDays int `json:"log_retention_days"`
 }
 
-type DreamConfig struct {
+type CompileConfig struct {
 	TriggerMode           string `json:"trigger_mode"`
 	TriggerIntervalMinutes int   `json:"trigger_interval_minutes"`
 	TriggerEventThreshold  int   `json:"trigger_event_threshold"`
@@ -33,7 +33,7 @@ type ScopeConfig struct {
 type Config struct {
 	Daemon    DaemonConfig    `json:"daemon"`
 	Ingestion IngestionConfig `json:"ingestion"`
-	Dream     DreamConfig     `json:"dream"`
+	Compile   CompileConfig   `json:"compile"`
 	Scope     ScopeConfig     `json:"scope"`
 }
 
@@ -46,7 +46,7 @@ func DefaultConfig() Config {
 			MaxResponseBytes: 512,
 			LogRetentionDays: 30,
 		},
-		Dream: DreamConfig{
+		Compile: CompileConfig{
 			TriggerMode:            "manual",
 			TriggerIntervalMinutes: 30,
 			TriggerEventThreshold:  100,

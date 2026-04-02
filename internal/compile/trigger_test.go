@@ -1,4 +1,4 @@
-package dream
+package compile
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 
 func TestManualTrigger(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Dream.TriggerMode = "manual"
+	cfg.Compile.TriggerMode = "manual"
 
 	trigger := NewTrigger(cfg)
 
@@ -20,8 +20,8 @@ func TestManualTrigger(t *testing.T) {
 
 func TestIntervalTrigger(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Dream.TriggerMode = "interval"
-	cfg.Dream.TriggerIntervalMinutes = 1
+	cfg.Compile.TriggerMode = "interval"
+	cfg.Compile.TriggerIntervalMinutes = 1
 
 	trigger := NewTrigger(cfg)
 
@@ -31,7 +31,7 @@ func TestIntervalTrigger(t *testing.T) {
 	}
 
 	// Enough time elapsed
-	trigger.lastDreamTime = time.Now().Add(-2 * time.Minute)
+	trigger.lastCompileTime = time.Now().Add(-2 * time.Minute)
 	if !trigger.ShouldFire(100, time.Now()) {
 		t.Error("should fire after interval")
 	}
@@ -39,8 +39,8 @@ func TestIntervalTrigger(t *testing.T) {
 
 func TestEventCountTrigger(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Dream.TriggerMode = "event_count"
-	cfg.Dream.TriggerEventThreshold = 50
+	cfg.Compile.TriggerMode = "event_count"
+	cfg.Compile.TriggerEventThreshold = 50
 
 	trigger := NewTrigger(cfg)
 
@@ -57,11 +57,11 @@ func TestEventCountTrigger(t *testing.T) {
 
 func TestMarkFired(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Dream.TriggerMode = "interval"
-	cfg.Dream.TriggerIntervalMinutes = 1
+	cfg.Compile.TriggerMode = "interval"
+	cfg.Compile.TriggerIntervalMinutes = 1
 
 	trigger := NewTrigger(cfg)
-	trigger.lastDreamTime = time.Now().Add(-2 * time.Minute)
+	trigger.lastCompileTime = time.Now().Add(-2 * time.Minute)
 
 	if !trigger.ShouldFire(0, time.Now()) {
 		t.Fatal("should fire")

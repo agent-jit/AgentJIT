@@ -63,7 +63,7 @@ func (s *Server) Start() error {
 
 		data, readErr := os.ReadFile(path)
 		if readErr != nil {
-			log.Printf("[AgentJIT] Compiled skill: '%s'\n", skillName)
+			log.Printf("[AJ] Compiled skill: '%s'\n", skillName)
 			return
 		}
 		content := string(data)
@@ -77,11 +77,11 @@ func (s *Server) Start() error {
 			}
 		}
 
-		log.Printf("[AgentJIT] Compiled skill: '%s'. Estimated savings: %s tokens/invocation.\n",
+		log.Printf("[AJ] Compiled skill: '%s'. Estimated savings: %s tokens/invocation.\n",
 			skillName, savings)
 	})
 	if err != nil {
-		log.Printf("[AgentJIT] Could not start skill watcher: %v", err)
+		log.Printf("[AJ] Could not start skill watcher: %v", err)
 	} else {
 		s.skillWatcher = watcher
 		go watcher.Start()
@@ -96,7 +96,7 @@ func (s *Server) Start() error {
 				case <-s.stopCh:
 					return
 				default:
-					log.Printf("[AgentJIT] accept error: %v", err)
+					log.Printf("[AJ] accept error: %v", err)
 					continue
 				}
 			}
@@ -123,7 +123,7 @@ func (s *Server) Start() error {
 			case <-ticker.C:
 				last := s.LastEventTime()
 				if !last.IsZero() && time.Since(last) > s.effectiveIdleTimeout() {
-					log.Println("[AgentJIT] Idle timeout reached, shutting down")
+					log.Println("[AJ] Idle timeout reached, shutting down")
 					s.Stop()
 					return
 				}
@@ -179,8 +179,8 @@ func (s *Server) effectiveIdleTimeout() time.Duration {
 	return 30 * time.Minute
 }
 
-// EventsSinceDream returns the number of events since the counter was last reset.
-func (s *Server) EventsSinceDream() int64 {
+// EventsSinceCompile returns the number of events since the counter was last reset.
+func (s *Server) EventsSinceCompile() int64 {
 	return s.eventCount.Load()
 }
 
@@ -200,12 +200,12 @@ func (s *Server) handleConn(conn net.Conn) {
 
 		event, err := ingest.NormalizeEvent(raw, s.cfg.Ingestion.MaxResponseBytes)
 		if err != nil {
-			log.Printf("[AgentJIT] normalize error: %v", err)
+			log.Printf("[AJ] normalize error: %v", err)
 			continue
 		}
 
 		if err := s.writer.Write(event); err != nil {
-			log.Printf("[AgentJIT] write error: %v", err)
+			log.Printf("[AJ] write error: %v", err)
 			continue
 		}
 

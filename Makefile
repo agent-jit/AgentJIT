@@ -1,5 +1,5 @@
 MODULE   := github.com/anthropics/agentjit
-BIN      := agentjit
+BIN      := aj
 CMD      := ./cmd/agentjit
 
 .PHONY: build test lint clean install

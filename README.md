@@ -6,7 +6,7 @@
  \__,_/\__, /\___/_/ /_/\__/ /_/ /_/\___/_/_/\__/
       /____/         /___/  /_/
 
-      the daemon that dreams your workflows into existence
+      the daemon that compiles your workflows into existence
 ```
 
 > *"We are what we repeatedly do. Excellence, then, is not an act, but a habit."*
@@ -14,7 +14,7 @@
 >
 > Your AI agent repeats the same multi-step workflows hundreds of times —
 > `kubectl logs`, then `grep`, then `edit`, then `apply` — burning tokens
-> on what has already become muscle memory. AgentJIT watches these habits
+> on what has already become muscle memory. AJ watches these habits
 > form, and in quiet moments of reflection, distills them into instinct.
 >
 > Like an artisan whose hands move before conscious thought arrives,
@@ -24,17 +24,17 @@
 
 ---
 
-## What is AgentJIT?
+## What is AJ?
 
 A background JIT compiler for autonomous coding agents. It operates silently via Claude Code hooks, observes recurring tool-use patterns across sessions, and compiles them into zero-token parameterized skills — no manual configuration required.
 
 ```
  ┌─────────────────┐     ┌──────────────────┐     ┌──────────────────┐
- │   Claude Code    │────▶│   AgentJIT       │────▶│   Skills         │
+ │   Claude Code    │────▶│   AJ             │────▶│   Skills         │
  │   Hook Events    │     │   Daemon         │     │   (compiled)     │
  │                  │     │                  │     │                  │
  │  PostToolUse     │     │  ingest → log    │     │  parameterized   │
- │  SessionStart    │     │  trigger → dream │     │  deterministic   │
+ │  SessionStart    │     │  trigger → compile│    │  deterministic   │
  │  SessionEnd      │     │  compile → emit  │     │  zero-token      │
  └─────────────────┘     └──────────────────┘     └──────────────────┘
 ```
@@ -65,32 +65,32 @@ make install
 ## Quick Start
 
 ```bash
-# Initialize AgentJIT — creates ~/.agentjit/, installs Claude Code hooks
-agentjit init
+# Initialize AJ — creates ~/.aj/, installs Claude Code hooks
+aj init
 
 # Or install hooks into a specific project only
-agentjit init --local
+aj init --local
 
 # Start the background daemon
-agentjit daemon start
+aj daemon start
 
-# Trigger a dream compilation manually
-agentjit dream
+# Trigger a compilation manually
+aj compile
 
 # Import historical Claude Code transcripts
-agentjit bootstrap --since 2026-03-01
+aj bootstrap --since 2026-03-01
 
 # View generated skills
-agentjit skills list
+aj skills list
 
 # Adjust configuration
-agentjit config get --all
-agentjit config set dream.trigger_mode interval
+aj config get --all
+aj config set compile.trigger_mode interval
 ```
 
 ## Architecture
 
-AgentJIT is three loosely-coupled layers in a single Go binary:
+AJ is three loosely-coupled layers in a single Go binary:
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -105,24 +105,24 @@ AgentJIT is three loosely-coupled layers in a single Go binary:
 ├─────────────┴─────────────────┴─────────────────┤
 │              Unix Domain Socket                  │
 │              PID Lifecycle Mgmt                  │
-│              ~/.agentjit/ filesystem             │
+│              ~/.aj/ filesystem                   │
 └─────────────────────────────────────────────────┘
 ```
 
-**Design philosophy:** The Go binary is a dumb pipe. It handles I/O, lifecycle, and configuration. All intelligence lives in the compiler prompt that Claude executes during dream cycles.
+**Design philosophy:** The Go binary is a dumb pipe. It handles I/O, lifecycle, and configuration. All intelligence lives in the compiler prompt that Claude executes during compile cycles.
 
 ### Data Flow
 
-1. **Ingest** — Claude Code hooks fire on every tool use, piping JSON to `agentjit ingest` via stdin
+1. **Ingest** — Claude Code hooks fire on every tool use, piping JSON to `aj ingest` via stdin
 2. **Normalize** — Events are normalized into a canonical schema and appended to date/session-partitioned JSONL logs
-3. **Trigger** — The daemon monitors event counts or timers and fires the dream compilation sequence
-4. **Dream** — Claude Code reads the logs, identifies recurring multi-step patterns, and generates parameterized skills
-5. **Emit** — Skills are written to `~/.agentjit/skills/` and become available immediately
+3. **Trigger** — The daemon monitors event counts or timers and fires the compilation sequence
+4. **Compile** — Claude Code reads the logs, identifies recurring multi-step patterns, and generates parameterized skills
+5. **Emit** — Skills are written to `~/.aj/skills/` and become available immediately
 
 ### Filesystem Layout
 
 ```
-~/.agentjit/
+~/.aj/
 ├── config.json                 # Configuration with sensible defaults
 ├── daemon.pid                  # Daemon process ID
 ├── daemon.sock                 # Unix domain socket
@@ -130,8 +130,8 @@ AgentJIT is three loosely-coupled layers in a single Go binary:
 │   └── 2026-04-01/
 │       └── session_abc123.jsonl
 ├── skills/                     # Compiled skills (auto-generated)
-├── dream-log.jsonl             # Compiler activity log
-└── last_dream_marker           # Timestamp of last dream run
+├── compile-log.jsonl           # Compiler activity log
+└── last_compile_marker         # Timestamp of last compile run
 ```
 
 ## Configuration
@@ -142,7 +142,7 @@ Defaults are designed to work out of the box:
 {
   "daemon": { "idle_timeout_minutes": 30 },
   "ingestion": { "max_response_bytes": 512, "log_retention_days": 30 },
-  "dream": {
+  "compile": {
     "trigger_mode": "manual",
     "trigger_interval_minutes": 30,
     "trigger_event_threshold": 100,
@@ -159,33 +159,33 @@ Defaults are designed to work out of the box:
 Use dot-notation to get/set any value:
 
 ```bash
-agentjit config get dream.trigger_mode
-agentjit config set dream.min_pattern_frequency 5
-agentjit config reset
+aj config get compile.trigger_mode
+aj config set compile.min_pattern_frequency 5
+aj config reset
 ```
 
 ## CLI Reference
 
 | Command | Description |
 |---------|-------------|
-| `agentjit init` | Create `~/.agentjit/`, install hooks, write config |
-| `agentjit init --local` | Install hooks into project-local settings |
-| `agentjit init uninstall` | Remove hooks and optionally delete data |
-| `agentjit daemon start` | Start background daemon |
-| `agentjit daemon stop` | Stop daemon gracefully |
-| `agentjit daemon status` | Show PID, uptime, event count |
-| `agentjit dream` | Manually trigger dream compilation |
-| `agentjit bootstrap` | Import historical Claude Code transcripts |
-| `agentjit config get [KEY]` | Read config values |
-| `agentjit config set KEY VAL` | Write config values |
-| `agentjit skills list` | List generated skills with ROI stats |
-| `agentjit skills remove NAME` | Remove a compiled skill |
-| `agentjit ingest` | Internal: receive hook JSON from stdin |
+| `aj init` | Create `~/.aj/`, install hooks, write config |
+| `aj init --local` | Install hooks into project-local settings |
+| `aj init uninstall` | Remove hooks and optionally delete data |
+| `aj daemon start` | Start background daemon |
+| `aj daemon stop` | Stop daemon gracefully |
+| `aj daemon status` | Show PID, uptime, event count |
+| `aj compile` | Manually trigger compilation |
+| `aj bootstrap` | Import historical Claude Code transcripts |
+| `aj config get [KEY]` | Read config values |
+| `aj config set KEY VAL` | Write config values |
+| `aj skills list` | List generated skills with ROI stats |
+| `aj skills remove NAME` | Remove a compiled skill |
+| `aj ingest` | Internal: receive hook JSON from stdin |
 
 ## Development
 
 ```bash
-make build        # Build binary to ./agentjit
+make build        # Build binary to ./aj
 make test         # Run all tests
 make clean        # Remove build artifacts
 make install      # Install to $GOPATH/bin
@@ -193,11 +193,11 @@ make install      # Install to $GOPATH/bin
 
 **Requirements:** Go 1.22+
 
-## How It Works — The Dream Cycle
+## How It Works — The Compile Cycle
 
-When the daemon triggers a dream (by event threshold, timer, or manual invocation), it orchestrates a reflection cycle:
+When the daemon triggers a compile (by event threshold, timer, or manual invocation), it orchestrates a reflection cycle:
 
-1. **Gather** — Collect JSONL logs since the last dream marker
+1. **Gather** — Collect JSONL logs since the last compile marker
 2. **Analyze** — Pass logs to Claude with the compiler prompt
 3. **Identify** — Claude detects recurring multi-step tool-use patterns (≥3 occurrences)
 4. **Parameterize** — Variable parts (file paths, namespaces, pod names) become parameters

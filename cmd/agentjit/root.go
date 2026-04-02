@@ -8,9 +8,9 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "agentjit",
+	Use:   "aj",
 	Short: "Background JIT compiler for autonomous coding agents",
-	Long:  "AgentJIT silently ingests agent execution telemetry, identifies recurring patterns, and compiles them into parameterized skills.",
+	Long:  "AJ silently ingests agent execution telemetry, identifies recurring patterns, and compiles them into parameterized skills.",
 }
 
 func Execute() {

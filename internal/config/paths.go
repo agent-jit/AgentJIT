@@ -5,26 +5,26 @@ import (
 	"path/filepath"
 )
 
-// Paths holds all filesystem paths used by AgentJIT.
+// Paths holds all filesystem paths used by AJ.
 type Paths struct {
-	Root       string // ~/.agentjit
-	Config     string // ~/.agentjit/config.json
-	Logs       string // ~/.agentjit/logs
-	Skills     string // ~/.agentjit/skills
-	PID        string // ~/.agentjit/daemon.pid
-	Socket     string // ~/.agentjit/daemon.sock
-	DreamLog   string // ~/.agentjit/dream-log.jsonl
-	DreamMarker string // ~/.agentjit/last_dream_marker
-	BootstrapProcessed string // ~/.agentjit/bootstrap_processed.json
+	Root       string // ~/.aj
+	Config     string // ~/.aj/config.json
+	Logs       string // ~/.aj/logs
+	Skills     string // ~/.aj/skills
+	PID        string // ~/.aj/daemon.pid
+	Socket     string // ~/.aj/daemon.sock
+	CompileLog   string // ~/.aj/compile-log.jsonl
+	CompileMarker string // ~/.aj/last_compile_marker
+	BootstrapProcessed string // ~/.aj/bootstrap_processed.json
 }
 
-// DefaultPaths returns Paths rooted at ~/.agentjit.
+// DefaultPaths returns Paths rooted at ~/.aj.
 func DefaultPaths() (Paths, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return Paths{}, err
 	}
-	root := filepath.Join(home, ".agentjit")
+	root := filepath.Join(home, ".aj")
 	return PathsFromRoot(root), nil
 }
 
@@ -38,8 +38,8 @@ func PathsFromRoot(root string) Paths {
 		Skills:             filepath.Join(root, "skills"),
 		PID:                filepath.Join(root, "daemon.pid"),
 		Socket:             filepath.Join(root, "daemon.sock"),
-		DreamLog:           filepath.Join(root, "dream-log.jsonl"),
-		DreamMarker:        filepath.Join(root, "last_dream_marker"),
+		CompileLog:         filepath.Join(root, "compile-log.jsonl"),
+		CompileMarker:      filepath.Join(root, "last_compile_marker"),
 		BootstrapProcessed: filepath.Join(root, "bootstrap_processed.json"),
 	}
 }

@@ -7,7 +7,7 @@ import (
 func TestGetField(t *testing.T) {
 	cfg := DefaultConfig()
 
-	val, err := GetField(cfg, "dream.trigger_mode")
+	val, err := GetField(cfg, "compile.trigger_mode")
 	if err != nil {
 		t.Fatalf("GetField: %v", err)
 	}
@@ -40,12 +40,12 @@ func TestGetFieldInvalid(t *testing.T) {
 func TestSetField(t *testing.T) {
 	cfg := DefaultConfig()
 
-	updated, err := SetField(cfg, "dream.trigger_mode", "interval")
+	updated, err := SetField(cfg, "compile.trigger_mode", "interval")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
 
-	val, _ := GetField(updated, "dream.trigger_mode")
+	val, _ := GetField(updated, "compile.trigger_mode")
 	if val != "interval" {
 		t.Errorf("after SetField, got %q, want interval", val)
 	}
@@ -54,12 +54,12 @@ func TestSetField(t *testing.T) {
 func TestSetFieldNumeric(t *testing.T) {
 	cfg := DefaultConfig()
 
-	updated, err := SetField(cfg, "dream.trigger_interval_minutes", "15")
+	updated, err := SetField(cfg, "compile.trigger_interval_minutes", "15")
 	if err != nil {
 		t.Fatalf("SetField: %v", err)
 	}
 
-	val, _ := GetField(updated, "dream.trigger_interval_minutes")
+	val, _ := GetField(updated, "compile.trigger_interval_minutes")
 	if val != float64(15) {
 		t.Errorf("after SetField, got %v, want 15", val)
 	}

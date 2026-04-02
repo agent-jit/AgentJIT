@@ -26,7 +26,7 @@ func NewWatcher(dirs []string, onNewSkill func(path string)) (*Watcher, error) {
 
 	for _, dir := range dirs {
 		if err := fsw.Add(dir); err != nil {
-			log.Printf("[AgentJIT] Could not watch %s: %v", dir, err)
+			log.Printf("[AJ] Could not watch %s: %v", dir, err)
 		}
 	}
 
@@ -64,7 +64,7 @@ func (w *Watcher) Start() {
 			if !ok {
 				return
 			}
-			log.Printf("[AgentJIT] watcher error: %v", err)
+			log.Printf("[AJ] watcher error: %v", err)
 		}
 	}
 }

@@ -1,4 +1,4 @@
-package dream
+package compile
 
 import (
 	"bufio"
@@ -13,12 +13,12 @@ import (
 	"github.com/anthropics/agentjit/internal/ingest"
 )
 
-// WriteMarker writes a timestamp to the dream marker file.
+// WriteMarker writes a timestamp to the compile marker file.
 func WriteMarker(path string, t time.Time) error {
 	return os.WriteFile(path, []byte(t.UTC().Format(time.RFC3339)), 0644)
 }
 
-// ReadMarker reads the timestamp from the dream marker file.
+// ReadMarker reads the timestamp from the compile marker file.
 // Returns zero time if file doesn't exist.
 func ReadMarker(path string) (time.Time, error) {
 	data, err := os.ReadFile(path)
@@ -32,9 +32,9 @@ func ReadMarker(path string) (time.Time, error) {
 }
 
 // GatherUnprocessedLogs reads all JSONL events from log files newer than
-// the last dream marker. Returns events sorted by timestamp, capped at maxLines.
+// the last compile marker. Returns events sorted by timestamp, capped at maxLines.
 func GatherUnprocessedLogs(paths config.Paths, maxLines int) ([]ingest.Event, error) {
-	marker, _ := ReadMarker(paths.DreamMarker)
+	marker, _ := ReadMarker(paths.CompileMarker)
 
 	dateDirs, err := os.ReadDir(paths.Logs)
 	if err != nil {

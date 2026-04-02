@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 )
 
-// InstallHooks merges AgentJIT hooks into the given Claude Code settings file.
+// InstallHooks merges AJ hooks into the given Claude Code settings file.
 // Creates the file if it doesn't exist. Preserves existing hooks and settings.
-// Idempotent -- skips events where AgentJIT hooks are already present.
+// Idempotent -- skips events where AJ hooks are already present.
 func InstallHooks(settingsPath string) error {
 	settings, err := readSettings(settingsPath)
 	if err != nil {
@@ -21,13 +21,13 @@ func InstallHooks(settingsPath string) error {
 		hooksObj = make(map[string]interface{})
 	}
 
-	agentjitHooks := AgentJITHooks()
+	ajHooks := AJHooks()
 
-	for event, groups := range agentjitHooks {
+	for event, groups := range ajHooks {
 		existing, _ := hooksObj[event].([]interface{})
 
-		// Check if AgentJIT hooks already present
-		if hasAgentJITHooks(existing) {
+		// Check if AJ hooks already present
+		if hasAJHooks(existing) {
 			continue
 		}
 
@@ -45,8 +45,8 @@ func InstallHooks(settingsPath string) error {
 	return writeSettings(settingsPath, settings)
 }
 
-// UninstallHooks removes AgentJIT hooks from the given Claude Code settings file.
-// Preserves all non-AgentJIT hooks and settings.
+// UninstallHooks removes AJ hooks from the given Claude Code settings file.
+// Preserves all non-AJ hooks and settings.
 func UninstallHooks(settingsPath string) error {
 	settings, err := readSettings(settingsPath)
 	if err != nil {
@@ -77,19 +77,19 @@ func UninstallHooks(settingsPath string) error {
 				continue
 			}
 
-			hasAgentJIT := false
+			hasAJ := false
 			for _, h := range handlers {
 				hm, ok := h.(map[string]interface{})
 				if !ok {
 					continue
 				}
 				cmd, _ := hm["command"].(string)
-				if isAgentJITHook(cmd) {
-					hasAgentJIT = true
+				if isAJHook(cmd) {
+					hasAJ = true
 					break
 				}
 			}
-			if !hasAgentJIT {
+			if !hasAJ {
 				kept = append(kept, g)
 			}
 		}
@@ -110,7 +110,7 @@ func UninstallHooks(settingsPath string) error {
 	return writeSettings(settingsPath, settings)
 }
 
-func hasAgentJITHooks(groups []interface{}) bool {
+func hasAJHooks(groups []interface{}) bool {
 	for _, g := range groups {
 		groupMap, ok := g.(map[string]interface{})
 		if !ok {
@@ -126,7 +126,7 @@ func hasAgentJITHooks(groups []interface{}) bool {
 				continue
 			}
 			cmd, _ := hm["command"].(string)
-			if isAgentJITHook(cmd) {
+			if isAJHook(cmd) {
 				return true
 			}
 		}

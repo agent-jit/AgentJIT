@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the `agentjit dream` command that gathers unprocessed logs and existing skills, constructs a context payload, invokes Claude CLI with the compiler prompt, and records results.
+**Goal:** Build the `aj compile` command that gathers unprocessed logs and existing skills, constructs a context payload, invokes Claude CLI with the compiler prompt, and records results.
 
 **Architecture:** The dream command is an orchestrator — it prepares data and shells out to `claude`. The compiler prompt is a markdown file that instructs Claude to perform pattern detection, parameterization, scope inference, ROI calculation, and skill generation.
 
@@ -15,12 +15,12 @@
 ### Task 1: Implement Log Gatherer
 
 **Files:**
-- Create: `internal/dream/gatherer.go`
-- Create: `internal/dream/gatherer_test.go`
+- Create: `internal/compile/gatherer.go`
+- Create: `internal/compile/gatherer_test.go`
 
 - [ ] **Step 1: Write failing test for log gathering**
 
-Create `internal/dream/gatherer_test.go`:
+Create `internal/compile/gatherer_test.go`:
 
 ```go
 package dream
@@ -73,7 +73,7 @@ func TestGatherUnprocessedLogs(t *testing.T) {
 
 	// Set marker to before t2 but after t1
 	marker := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
-	WriteMarker(paths.DreamMarker, marker)
+	WriteMarker(paths.CompileMarker, marker)
 
 	events, err := GatherUnprocessedLogs(paths, 50000)
 	if err != nil {
@@ -147,12 +147,12 @@ func TestWriteAndReadMarker(t *testing.T) {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `go test ./internal/dream/ -run TestGather -v`
+Run: `go test ./internal/compile/ -run TestGather -v`
 Expected: FAIL — `GatherUnprocessedLogs` undefined
 
 - [ ] **Step 3: Implement log gatherer**
 
-Create `internal/dream/gatherer.go`:
+Create `internal/compile/gatherer.go`:
 
 ```go
 package dream
@@ -191,7 +191,7 @@ func ReadMarker(path string) (time.Time, error) {
 // GatherUnprocessedLogs reads all JSONL events from log files newer than
 // the last dream marker. Returns events sorted by timestamp, capped at maxLines.
 func GatherUnprocessedLogs(paths config.Paths, maxLines int) ([]ingest.Event, error) {
-	marker, _ := ReadMarker(paths.DreamMarker)
+	marker, _ := ReadMarker(paths.CompileMarker)
 
 	dateDirs, err := os.ReadDir(paths.Logs)
 	if err != nil {
@@ -290,13 +290,13 @@ func readJSONLFile(path string, after time.Time) ([]ingest.Event, error) {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `go test ./internal/dream/ -run "TestGather|TestWrite" -v`
+Run: `go test ./internal/compile/ -run "TestGather|TestWrite" -v`
 Expected: All PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/dream/gatherer.go internal/dream/gatherer_test.go
+git add internal/compile/gatherer.go internal/compile/gatherer_test.go
 git commit -m "feat: add log gatherer with marker-based incremental processing"
 ```
 
@@ -506,7 +506,7 @@ Expected: All PASS
 
 ```bash
 git add internal/skills/inventory.go internal/skills/inventory_test.go
-git commit -m "feat: add skill inventory scanner for dream compiler"
+git commit -m "feat: add skill inventory scanner for compiler"
 ```
 
 ---
@@ -521,7 +521,7 @@ git commit -m "feat: add skill inventory scanner for dream compiler"
 Create `prompts/compiler.md`:
 
 ```markdown
-# AgentJIT Dream Compiler
+# AJ Dream Compiler
 
 You are a JIT compiler for autonomous coding agents. You analyze execution logs from Claude Code sessions to identify recurring multi-step patterns and compile them into deterministic, parameterized skills.
 
@@ -622,7 +622,7 @@ DREAM_LOG:{"timestamp":"...","skills_created":1,"skills_updated":0,"skills_depre
 
 ```bash
 git add prompts/compiler.md
-git commit -m "feat: add dream compiler prompt for Claude-driven pattern compilation"
+git commit -m "feat: add compiler prompt for Claude-driven pattern compilation"
 ```
 
 ---
@@ -630,12 +630,12 @@ git commit -m "feat: add dream compiler prompt for Claude-driven pattern compila
 ### Task 4: Implement Dream Compiler Orchestrator
 
 **Files:**
-- Create: `internal/dream/compiler.go`
-- Create: `internal/dream/compiler_test.go`
+- Create: `internal/compile/compiler.go`
+- Create: `internal/compile/compiler_test.go`
 
 - [ ] **Step 1: Write test for context building**
 
-Create `internal/dream/compiler_test.go`:
+Create `internal/compile/compiler_test.go`:
 
 ```go
 package dream
@@ -710,12 +710,12 @@ func TestBuildPrompt(t *testing.T) {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `go test ./internal/dream/ -run TestBuild -v`
+Run: `go test ./internal/compile/ -run TestBuild -v`
 Expected: FAIL — `BuildContext` undefined
 
 - [ ] **Step 3: Implement context builder and prompt templater**
 
-Create `internal/dream/compiler.go`:
+Create `internal/compile/compiler.go`:
 
 ```go
 package dream
@@ -734,7 +734,7 @@ import (
 	"github.com/anthropics/agentjit/internal/skills"
 )
 
-// BuildContext creates the context payload string for the dream compiler.
+// BuildContext creates the context payload string for the compiler.
 func BuildContext(events []ingest.Event, existingSkills []skills.SkillMeta, cfg config.Config) (string, error) {
 	var sb strings.Builder
 
@@ -793,8 +793,8 @@ func BuildPrompt(promptPath string, cfg config.Config, globalSkillsDir string) (
 	return prompt, nil
 }
 
-// RunDream executes the full dream compilation sequence.
-func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
+// RunCompile executes the full compilation sequence.
+func RunCompile(paths config.Paths, cfg config.Config, promptPath string) error {
 	// 1. Gather unprocessed logs
 	events, err := GatherUnprocessedLogs(paths, cfg.Dream.MaxContextLines)
 	if err != nil {
@@ -802,7 +802,7 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 	}
 
 	if len(events) == 0 {
-		fmt.Println("[AgentJIT] No new events to process")
+		fmt.Println("[AJ] No new events to process")
 		return nil
 	}
 
@@ -831,7 +831,7 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 	tmpFile.Close()
 
 	// 6. Invoke Claude
-	fmt.Printf("[AgentJIT] Starting dream compilation (%d events, %d existing skills)\n",
+	fmt.Printf("[AJ] Starting compilation (%d events, %d existing skills)\n",
 		len(events), len(existingSkills))
 
 	cmd := exec.Command("claude",
@@ -850,25 +850,25 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 	}
 
 	// 7. Update marker
-	if err := WriteMarker(paths.DreamMarker, time.Now().UTC()); err != nil {
+	if err := WriteMarker(paths.CompileMarker, time.Now().UTC()); err != nil {
 		return fmt.Errorf("writing marker: %w", err)
 	}
 
-	fmt.Println("[AgentJIT] Dream compilation complete")
+	fmt.Println("[AJ] Dream compilation complete")
 	return nil
 }
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `go test ./internal/dream/ -run TestBuild -v`
+Run: `go test ./internal/compile/ -run TestBuild -v`
 Expected: All PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/dream/compiler.go internal/dream/compiler_test.go
-git commit -m "feat: add dream compiler orchestrator with context building"
+git add internal/compile/compiler.go internal/compile/compiler_test.go
+git commit -m "feat: add compiler orchestrator with context building"
 ```
 
 ---
@@ -926,7 +926,7 @@ var dreamCmd = &cobra.Command{
 			return fmt.Errorf("compiler prompt not found at %s — run from the agentjit project directory or install properly", promptPath)
 		}
 
-		return dream.RunDream(paths, cfg, promptPath)
+		return dream.RunCompile(paths, cfg, promptPath)
 	},
 }
 
@@ -940,9 +940,9 @@ func init() {
 Run:
 ```bash
 go build -o agentjit ./cmd/agentjit/
-./agentjit dream
+./aj compile
 ```
-Expected: "[AgentJIT] No new events to process" (since no logs yet)
+Expected: "[AJ] No new events to process" (since no logs yet)
 
 - [ ] **Step 3: Commit**
 

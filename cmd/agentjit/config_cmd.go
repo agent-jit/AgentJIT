@@ -12,7 +12,7 @@ var configAll bool
 
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "View or modify AgentJIT configuration",
+	Short: "View or modify AJ configuration",
 }
 
 var configGetCmd = &cobra.Command{
@@ -71,7 +71,7 @@ var configSetCmd = &cobra.Command{
 		if err := config.Save(paths.Config, updated); err != nil {
 			return fmt.Errorf("saving config: %w", err)
 		}
-		fmt.Printf("[AgentJIT] Set %s = %s\n", args[0], args[1])
+		fmt.Printf("[AJ] Set %s = %s\n", args[0], args[1])
 		return nil
 	},
 }
@@ -90,7 +90,7 @@ var configResetCmd = &cobra.Command{
 		if err := config.Save(paths.Config, config.DefaultConfig()); err != nil {
 			return fmt.Errorf("saving config: %w", err)
 		}
-		fmt.Println("[AgentJIT] Config reset to defaults")
+		fmt.Println("[AJ] Config reset to defaults")
 		return nil
 	},
 }
