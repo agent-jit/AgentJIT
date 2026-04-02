@@ -28,15 +28,10 @@
 
 A background JIT compiler for autonomous coding agents. It operates silently via Claude Code hooks, observes recurring tool-use patterns across sessions, and compiles them into zero-token parameterized skills — no manual configuration required.
 
-```
- ┌─────────────────┐     ┌──────────────────┐     ┌──────────────────┐
- │   Claude Code    │────▶│   AJ             │────▶│   Skills         │
- │   Hook Events    │     │   Daemon         │     │   (compiled)     │
- │                  │     │                  │     │                  │
- │  PostToolUse     │     │  ingest → log    │     │  parameterized   │
- │  SessionStart    │     │  trigger → compile│    │  deterministic   │
- │  SessionEnd      │     │  compile → emit  │     │  zero-token      │
- └─────────────────┘     └──────────────────┘     └──────────────────┘
+```mermaid
+flowchart LR
+    A["Claude Code<br/>Hook Events<br/><br/>PostToolUse<br/>SessionStart<br/>SessionEnd"] -->|hook stdin| B["AJ<br/>Daemon<br/><br/>ingest → log<br/>trigger → compile<br/>compile → emit"]
+    B -->|write| C["Skills<br/>(compiled)<br/><br/>parameterized<br/>deterministic<br/>zero-token"]
 ```
 
 ### The Numbers
@@ -92,21 +87,31 @@ aj config set compile.trigger_mode interval
 
 AJ is three loosely-coupled layers in a single Go binary:
 
-```
-┌─────────────────────────────────────────────────┐
-│                   CLI (Cobra)                    │
-├─────────────┬─────────────────┬─────────────────┤
-│  Ingestion  │    Trigger      │    Compiler      │
-│  Layer      │    Layer        │    Layer          │
-│             │                 │                   │
-│  hook stdin │  event count    │  claude code CLI  │
-│  normalize  │  interval timer │  pattern detect   │
-│  JSONL logs │  manual fire    │  skill generation │
-├─────────────┴─────────────────┴─────────────────┤
-│              Unix Domain Socket                  │
-│              PID Lifecycle Mgmt                  │
-│              ~/.aj/ filesystem                   │
-└─────────────────────────────────────────────────┘
+```mermaid
+block-beta
+    columns 1
+    block:cli["CLI (Cobra)"]
+        columns 3
+        block:ing["Ingestion Layer"]
+            A["hook stdin"]
+            B["normalize"]
+            C["JSONL logs"]
+        end
+        block:trig["Trigger Layer"]
+            D["event count"]
+            E["interval timer"]
+            F["manual fire"]
+        end
+        block:comp["Compiler Layer"]
+            G["claude code CLI"]
+            H["pattern detect"]
+            I["skill generation"]
+        end
+    end
+    block:infra["Infrastructure"]
+        columns 1
+        J["Unix Domain Socket &nbsp; | &nbsp; PID Lifecycle Mgmt &nbsp; | &nbsp; ~/.aj/ filesystem"]
+    end
 ```
 
 **Design philosophy:** The Go binary is a dumb pipe. It handles I/O, lifecycle, and configuration. All intelligence lives in the compiler prompt that Claude executes during compile cycles.
