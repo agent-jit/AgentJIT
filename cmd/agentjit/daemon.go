@@ -33,9 +33,15 @@ var daemonStartCmd = &cobra.Command{
 
 		if ifNotRunning && daemon.IsRunning(paths.PID) {
 			pid, _ := daemon.ReadPID(paths.PID)
+			cfg, err := config.Load(paths.Config)
+			if err != nil {
+				cfg = config.DefaultConfig()
+			}
 			// Output context for SessionStart hook
 			ctx := map[string]string{
-				"additionalContext": fmt.Sprintf("[AgentJIT] Ingestion active. Daemon PID %d.", pid),
+				"additionalContext": fmt.Sprintf(
+					"[AgentJIT] Ingestion active. Daemon PID %d. Dream mode: %s.",
+					pid, cfg.Dream.TriggerMode),
 			}
 			data, _ := json.Marshal(ctx)
 			fmt.Println(string(data))
