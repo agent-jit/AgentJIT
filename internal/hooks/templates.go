@@ -47,7 +47,14 @@ func AJHooks() map[string][]MatcherGroup {
 	}
 }
 
-// isAJHook checks if a hook handler belongs to AJ.
+// isAJHook checks if a hook handler belongs to AJ (current or legacy name).
 func isAJHook(command string) bool {
-	return len(command) >= 9 && (command[:9] == "aj ingest" || command[:9] == "aj daemon")
+	if len(command) >= 9 && (command[:9] == "aj ingest" || command[:9] == "aj daemon") {
+		return true
+	}
+	// Also detect legacy "agentjit" hooks for uninstall compatibility
+	if len(command) >= 14 && (command[:14] == "agentjit inges" || command[:14] == "agentjit daemo") {
+		return true
+	}
+	return false
 }

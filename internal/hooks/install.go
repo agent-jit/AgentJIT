@@ -9,8 +9,11 @@ import (
 
 // InstallHooks merges AJ hooks into the given Claude Code settings file.
 // Creates the file if it doesn't exist. Preserves existing hooks and settings.
-// Idempotent -- skips events where AJ hooks are already present.
+// Idempotent -- replaces any existing AJ/legacy hooks with current versions.
 func InstallHooks(settingsPath string) error {
+	// First remove any existing AJ or legacy hooks
+	UninstallHooks(settingsPath)
+
 	settings, err := readSettings(settingsPath)
 	if err != nil {
 		return err
@@ -25,11 +28,6 @@ func InstallHooks(settingsPath string) error {
 
 	for event, groups := range ajHooks {
 		existing, _ := hooksObj[event].([]interface{})
-
-		// Check if AJ hooks already present
-		if hasAJHooks(existing) {
-			continue
-		}
 
 		// Marshal our groups and append
 		for _, group := range groups {

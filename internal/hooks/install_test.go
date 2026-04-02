@@ -125,6 +125,50 @@ func TestInstallHooksIdempotent(t *testing.T) {
 	}
 }
 
+func TestUninstallLegacyHooks(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	// Simulate old "agentjit" hooks that need to be removed
+	existing := `{
+		"hooks": {
+			"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "echo existing"}]}],
+			"PostToolUse": [{"hooks": [{"type": "command", "command": "agentjit ingest", "async": true}]}],
+			"SessionStart": [{"hooks": [{"type": "command", "command": "agentjit daemon start --if-not-running && agentjit ingest"}]}]
+		},
+		"model": "opus"
+	}`
+	os.WriteFile(settingsPath, []byte(existing), 0644)
+
+	if err := UninstallHooks(settingsPath); err != nil {
+		t.Fatalf("UninstallHooks: %v", err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	json.Unmarshal(data, &settings)
+
+	hooksMap := settings["hooks"].(map[string]interface{})
+
+	// Legacy agentjit hooks should be removed
+	if _, ok := hooksMap["PostToolUse"]; ok {
+		t.Error("PostToolUse with legacy agentjit hook should have been removed")
+	}
+	if _, ok := hooksMap["SessionStart"]; ok {
+		t.Error("SessionStart with legacy agentjit hook should have been removed")
+	}
+
+	// Existing non-AJ hooks preserved
+	if _, ok := hooksMap["PreToolUse"]; !ok {
+		t.Error("PreToolUse should have been preserved")
+	}
+
+	// Non-hook settings preserved
+	if settings["model"] != "opus" {
+		t.Error("model was clobbered")
+	}
+}
+
 func TestUninstallHooks(t *testing.T) {
 	dir := t.TempDir()
 	settingsPath := filepath.Join(dir, "settings.json")
