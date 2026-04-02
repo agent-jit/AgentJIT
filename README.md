@@ -30,8 +30,32 @@ A background JIT compiler for autonomous coding agents. It operates silently via
 
 ```mermaid
 flowchart LR
-    A["Claude Code<br/>Hook Events<br/><br/>PostToolUse<br/>SessionStart<br/>SessionEnd"] -->|hook stdin| B["AJ<br/>Daemon<br/><br/>ingest → log<br/>trigger → compile<br/>compile → emit"]
-    B -->|write| C["Skills<br/>(compiled)<br/><br/>parameterized<br/>deterministic<br/>zero-token"]
+    subgraph hooks["Hook Events"]
+        H1(["PostToolUse"])
+        H2(["SessionStart"])
+        H3(["SessionEnd"])
+    end
+
+    subgraph daemon["AJ Daemon"]
+        direction TB
+        D1["Ingest & Log"]
+        D2["Trigger Compile"]
+        D3["Emit Skills"]
+        D1 --> D2 --> D3
+    end
+
+    subgraph skills["Compiled Skills"]
+        S1[/"Parameterized"/]
+        S2[/"Deterministic"/]
+        S3[/"Zero-token"/]
+    end
+
+    hooks -- "stdin (JSON)" --> daemon
+    daemon -- "~/.aj/skills/" --> skills
+
+    style hooks fill:#4a5568,stroke:#a0aec0,color:#e2e8f0
+    style daemon fill:#2b6cb0,stroke:#63b3ed,color:#e2e8f0
+    style skills fill:#276749,stroke:#68d391,color:#e2e8f0
 ```
 
 ### The Numbers
@@ -88,30 +112,50 @@ aj config set compile.trigger_mode interval
 AJ is three loosely-coupled layers in a single Go binary:
 
 ```mermaid
-block-beta
-    columns 1
-    block:cli["CLI (Cobra)"]
-        columns 3
-        block:ing["Ingestion Layer"]
-            A["hook stdin"]
-            B["normalize"]
-            C["JSONL logs"]
+flowchart TB
+    subgraph cli["CLI · Cobra"]
+        direction LR
+
+        subgraph ingestion["Ingestion Layer"]
+            direction TB
+            I1["Hook stdin"]
+            I2["Normalize"]
+            I3["JSONL logs"]
+            I1 --> I2 --> I3
         end
-        block:trig["Trigger Layer"]
-            D["event count"]
-            E["interval timer"]
-            F["manual fire"]
+
+        subgraph trigger["Trigger Layer"]
+            direction TB
+            T1["Event count"]
+            T2["Interval timer"]
+            T3["Manual fire"]
         end
-        block:comp["Compiler Layer"]
-            G["claude code CLI"]
-            H["pattern detect"]
-            I["skill generation"]
+
+        subgraph compiler["Compiler Layer"]
+            direction TB
+            C1["Claude Code CLI"]
+            C2["Pattern detect"]
+            C3["Skill generation"]
+            C1 --> C2 --> C3
         end
+
+        ingestion --> trigger --> compiler
     end
-    block:infra["Infrastructure"]
-        columns 1
-        J["Unix Domain Socket &nbsp; | &nbsp; PID Lifecycle Mgmt &nbsp; | &nbsp; ~/.aj/ filesystem"]
+
+    subgraph infra["Infrastructure"]
+        direction LR
+        U["Unix Domain Socket"]
+        P["PID Lifecycle Mgmt"]
+        F["~/.aj/ filesystem"]
     end
+
+    cli --> infra
+
+    style cli fill:#2b6cb0,stroke:#63b3ed,color:#e2e8f0
+    style ingestion fill:#2c5282,stroke:#90cdf4,color:#e2e8f0
+    style trigger fill:#2c5282,stroke:#90cdf4,color:#e2e8f0
+    style compiler fill:#2c5282,stroke:#90cdf4,color:#e2e8f0
+    style infra fill:#4a5568,stroke:#a0aec0,color:#e2e8f0
 ```
 
 **Design philosophy:** The Go binary is a dumb pipe. It handles I/O, lifecycle, and configuration. All intelligence lives in the compiler prompt that Claude executes during compile cycles.
