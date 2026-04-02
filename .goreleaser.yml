@@ -33,6 +33,17 @@ release:
     owner: agent-jit
     name: AgentJIT
 
+brews:
+  - repository:
+      owner: agent-jit
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/agent-jit/AgentJIT
+    description: "Background JIT compiler for autonomous coding agents"
+    license: "MIT"
+    install: |
+      bin.install "aj"
+
 changelog:
   sort: asc
   filters:
