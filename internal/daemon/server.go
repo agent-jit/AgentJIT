@@ -16,15 +16,17 @@ import (
 
 // Server is the daemon's Unix socket server that receives and writes events.
 type Server struct {
-	socketPath string
-	paths      config.Paths
-	cfg        config.Config
-	listener   net.Listener
-	writer     *ingest.Writer
-	eventCount atomic.Int64
-	lastEvent  atomic.Int64 // unix timestamp of last event
-	stopCh     chan struct{}
-	wg         sync.WaitGroup
+	socketPath  string
+	paths       config.Paths
+	cfg         config.Config
+	listener    net.Listener
+	writer      *ingest.Writer
+	eventCount  atomic.Int64
+	lastEvent   atomic.Int64 // unix timestamp of last event
+	stopCh      chan struct{}
+	stopOnce    sync.Once
+	wg          sync.WaitGroup
+	idleTimeout time.Duration
 }
 
 // NewServer creates a new daemon server.
@@ -48,6 +50,7 @@ func (s *Server) Start() error {
 		return fmt.Errorf("listening on %s: %w", s.socketPath, err)
 	}
 	s.listener = listener
+	s.lastEvent.Store(time.Now().Unix())
 
 	// Accept connections
 	go func() {
@@ -67,16 +70,44 @@ func (s *Server) Start() error {
 		}
 	}()
 
+	// Idle timeout checker
+	go func() {
+		checkInterval := s.effectiveIdleTimeout() / 5
+		if checkInterval < 100*time.Millisecond {
+			checkInterval = 100 * time.Millisecond
+		}
+		if checkInterval > 10*time.Second {
+			checkInterval = 10 * time.Second
+		}
+		ticker := time.NewTicker(checkInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-s.stopCh:
+				return
+			case <-ticker.C:
+				last := s.LastEventTime()
+				if !last.IsZero() && time.Since(last) > s.effectiveIdleTimeout() {
+					log.Println("[AgentJIT] Idle timeout reached, shutting down")
+					s.Stop()
+					return
+				}
+			}
+		}
+	}()
+
 	<-s.stopCh
 	return nil
 }
 
 // Stop shuts down the server gracefully.
 func (s *Server) Stop() {
-	close(s.stopCh)
-	if s.listener != nil {
-		s.listener.Close()
-	}
+	s.stopOnce.Do(func() {
+		close(s.stopCh)
+		if s.listener != nil {
+			s.listener.Close()
+		}
+	})
 	s.wg.Wait()
 	os.Remove(s.socketPath)
 }
@@ -93,6 +124,21 @@ func (s *Server) LastEventTime() time.Time {
 		return time.Time{}
 	}
 	return time.Unix(ts, 0)
+}
+
+// SetIdleTimeout overrides the idle timeout duration. For testing.
+func (s *Server) SetIdleTimeout(d time.Duration) {
+	s.idleTimeout = d
+}
+
+func (s *Server) effectiveIdleTimeout() time.Duration {
+	if s.idleTimeout > 0 {
+		return s.idleTimeout
+	}
+	if s.cfg.Daemon.IdleTimeoutMinutes > 0 {
+		return time.Duration(s.cfg.Daemon.IdleTimeoutMinutes) * time.Minute
+	}
+	return 30 * time.Minute
 }
 
 // EventsSinceDream returns the number of events since the counter was last reset.
