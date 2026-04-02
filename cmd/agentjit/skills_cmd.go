@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	"github.com/anthropics/agentjit/internal/config"
+	"github.com/anthropics/agentjit/internal/skills"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +17,29 @@ var skillsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List generated skills with ROI metrics",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] skills list not yet implemented")
+		paths, err := config.DefaultPaths()
+		if err != nil {
+			return err
+		}
+
+		skillsList, err := skills.ListSkills(paths.Skills)
+		if err != nil {
+			return err
+		}
+
+		if len(skillsList) == 0 {
+			fmt.Println("[AgentJIT] No skills generated yet. Run 'agentjit dream' to compile patterns.")
+			return nil
+		}
+
+		fmt.Printf("%-25s %-8s %-10s %-10s %s\n", "NAME", "SCOPE", "SAVINGS", "FREQ", "TOTAL SAVINGS")
+		fmt.Printf("%-25s %-8s %-10s %-10s %s\n", "----", "-----", "-------", "----", "-------------")
+
+		for _, s := range skillsList {
+			fmt.Printf("%-25s %-8s %-10d %-10d %d\n",
+				s.Name, s.Scope, s.SavingsPerInvocation, s.ObservedFrequency, s.TotalSavings)
+		}
+
 		return nil
 	},
 }
@@ -25,7 +49,16 @@ var skillsRemoveCmd = &cobra.Command{
 	Short: "Remove a generated skill and deregister it",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("[AgentJIT] skills remove not yet implemented")
+		paths, err := config.DefaultPaths()
+		if err != nil {
+			return err
+		}
+
+		if err := skills.RemoveSkill(paths.Skills, args[0]); err != nil {
+			return err
+		}
+
+		fmt.Printf("[AgentJIT] Removed skill: %s\n", args[0])
 		return nil
 	},
 }
