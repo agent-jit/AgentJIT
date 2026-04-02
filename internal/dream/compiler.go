@@ -75,25 +75,33 @@ func BuildPrompt(promptPath string, cfg config.Config, globalSkillsDir string) (
 
 // RunDream executes the full dream compilation sequence.
 func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
+	start := time.Now()
+
 	// 1. Gather unprocessed logs
+	fmt.Print("[AgentJIT] Gathering unprocessed logs... ")
 	events, err := GatherUnprocessedLogs(paths, cfg.Dream.MaxContextLines)
 	if err != nil {
 		return fmt.Errorf("gathering logs: %w", err)
 	}
 
 	if len(events) == 0 {
-		fmt.Println("[AgentJIT] No new events to process")
+		fmt.Println("no new events to process")
 		return nil
 	}
+	fmt.Printf("%d events\n", len(events))
 
 	// 2. Gather existing skills
+	fmt.Print("[AgentJIT] Scanning existing skills... ")
 	existingSkills, _ := skills.ScanSkillsDir(paths.Skills)
+	fmt.Printf("%d skills\n", len(existingSkills))
 
 	// 3. Build context
+	fmt.Print("[AgentJIT] Building compiler context... ")
 	context, err := BuildContext(events, existingSkills, cfg)
 	if err != nil {
 		return fmt.Errorf("building context: %w", err)
 	}
+	fmt.Printf("%d bytes\n", len(context))
 
 	// 4. Build prompt
 	prompt, err := BuildPrompt(promptPath, cfg, paths.Skills)
@@ -113,6 +121,7 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 	// 6. Invoke Claude
 	fmt.Printf("[AgentJIT] Starting dream compilation (%d events, %d existing skills)\n",
 		len(events), len(existingSkills))
+	fmt.Println("[AgentJIT] Invoking Claude for pattern analysis — this may take a few minutes...")
 
 	cmd := exec.Command("claude",
 		"--print",
@@ -134,6 +143,7 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 		return fmt.Errorf("writing marker: %w", err)
 	}
 
-	fmt.Println("[AgentJIT] Dream compilation complete")
+	elapsed := time.Since(start).Round(time.Second)
+	fmt.Printf("[AgentJIT] Dream compilation complete (%s)\n", elapsed)
 	return nil
 }
