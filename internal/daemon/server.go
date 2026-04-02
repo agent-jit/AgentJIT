@@ -14,6 +14,7 @@ import (
 
 	"github.com/anthropics/agentjit/internal/config"
 	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/anthropics/agentjit/internal/transport"
 )
 
 // Server is the daemon's Unix socket server that receives and writes events.
@@ -46,9 +47,9 @@ func NewServer(socketPath string, paths config.Paths, cfg config.Config) *Server
 // Start begins listening on the Unix socket. Blocks until Stop is called.
 func (s *Server) Start() error {
 	// Remove stale socket
-	os.Remove(s.socketPath)
+	transport.Cleanup(s.socketPath)
 
-	listener, err := net.Listen("unix", s.socketPath)
+	listener, err := transport.Listen(s.socketPath)
 	if err != nil {
 		return fmt.Errorf("listening on %s: %w", s.socketPath, err)
 	}
@@ -147,7 +148,7 @@ func (s *Server) Stop() {
 		}
 	})
 	s.wg.Wait()
-	os.Remove(s.socketPath)
+	transport.Cleanup(s.socketPath)
 }
 
 // EventCount returns the total number of events received.

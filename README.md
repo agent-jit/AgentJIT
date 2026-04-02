@@ -158,7 +158,7 @@ flowchart TB
 
     subgraph infra["Infrastructure"]
         direction LR
-        U["Unix Domain Socket"]
+        U["IPC Transport<br/>(Unix socket / Windows named pipe)"]
         P["PID Lifecycle Mgmt"]
         F["~/.aj/ filesystem"]
     end
@@ -188,7 +188,7 @@ flowchart TB
 ~/.aj/
 ├── config.json                 # Configuration with sensible defaults
 ├── daemon.pid                  # Daemon process ID
-├── daemon.sock                 # Unix domain socket
+├── daemon.sock                 # IPC endpoint (Unix socket; named pipe on Windows)
 ├── logs/                       # Date/session-partitioned JSONL
 │   └── 2026-04-01/
 │       └── session_abc123.jsonl

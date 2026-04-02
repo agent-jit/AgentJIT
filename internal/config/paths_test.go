@@ -7,26 +7,28 @@ import (
 )
 
 func TestPathsFromRoot(t *testing.T) {
-	p := PathsFromRoot("/tmp/aj-test")
+	root := filepath.Join(os.TempDir(), "aj-test")
+	p := PathsFromRoot(root)
 
-	if p.Root != "/tmp/aj-test" {
-		t.Errorf("Root = %q, want /tmp/aj-test", p.Root)
+	if p.Root != root {
+		t.Errorf("Root = %q, want %q", p.Root, root)
 	}
-	if p.Config != "/tmp/aj-test/config.json" {
+	if p.Config != filepath.Join(root, "config.json") {
 		t.Errorf("Config = %q, want config.json", p.Config)
 	}
-	if p.PID != "/tmp/aj-test/daemon.pid" {
+	if p.PID != filepath.Join(root, "daemon.pid") {
 		t.Errorf("PID = %q, want daemon.pid", p.PID)
 	}
-	if p.Socket != "/tmp/aj-test/daemon.sock" {
+	if p.Socket != filepath.Join(root, "daemon.sock") {
 		t.Errorf("Socket = %q, want daemon.sock", p.Socket)
 	}
 }
 
 func TestSessionLogFile(t *testing.T) {
-	p := PathsFromRoot("/tmp/aj-test")
+	root := filepath.Join(os.TempDir(), "aj-test")
+	p := PathsFromRoot(root)
 	got := p.SessionLogFile("2026-04-01", "cld_abc123")
-	want := "/tmp/aj-test/logs/2026-04-01/cld_abc123.jsonl"
+	want := filepath.Join(root, "logs", "2026-04-01", "cld_abc123.jsonl")
 	if got != want {
 		t.Errorf("SessionLogFile = %q, want %q", got, want)
 	}
@@ -53,8 +55,9 @@ func TestEnsureDirs(t *testing.T) {
 }
 
 func TestClaudeSettingsLocal(t *testing.T) {
-	got := ClaudeSettingsLocal("/Users/dev/project")
-	want := filepath.Join("/Users/dev/project", ".claude", "settings.json")
+	root := filepath.Join(os.TempDir(), "project")
+	got := ClaudeSettingsLocal(root)
+	want := filepath.Join(root, ".claude", "settings.json")
 	if got != want {
 		t.Errorf("ClaudeSettingsLocal = %q, want %q", got, want)
 	}

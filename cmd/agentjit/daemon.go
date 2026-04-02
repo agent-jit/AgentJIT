@@ -3,12 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"time"
 
 	"github.com/anthropics/agentjit/internal/config"
 	"github.com/anthropics/agentjit/internal/daemon"
+	"github.com/anthropics/agentjit/internal/transport"
 	"github.com/spf13/cobra"
 )
 
@@ -100,14 +100,11 @@ var daemonStopCmd = &cobra.Command{
 		}
 
 		// Send shutdown signal via socket
-		conn, err := net.DialTimeout("unix", paths.Socket, 2*time.Second)
+		conn, err := transport.Dial(paths.Socket, 2*time.Second)
 		if err != nil {
 			// Can't connect — kill the process
 			pid, _ := daemon.ReadPID(paths.PID)
-			proc, _ := os.FindProcess(pid)
-			if proc != nil {
-				_ = proc.Signal(os.Interrupt)
-			}
+			_ = daemon.GracefulStop(pid)
 			daemon.RemovePID(paths.PID)
 			fmt.Println("[AJ] Daemon stopped (via signal)")
 			return nil

@@ -2,13 +2,13 @@ package daemon
 
 import (
 	"encoding/json"
-	"net"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/anthropics/agentjit/internal/config"
+	"github.com/anthropics/agentjit/internal/transport"
 )
 
 func TestServerStartAndAcceptEvent(t *testing.T) {
@@ -31,7 +31,7 @@ func TestServerStartAndAcceptEvent(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Send an event
-	conn, err := net.Dial("unix", socketPath)
+	conn, err := transport.Dial(socketPath, 2*time.Second)
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
@@ -81,8 +81,8 @@ func TestServerShutdownCleansSocket(t *testing.T) {
 	srv.Stop()
 	wg.Wait()
 
-	// Socket file should be removed
-	if _, err := net.Dial("unix", socketPath); err == nil {
+	// Socket should not be connectable after stop
+	if _, err := transport.Dial(socketPath, 2*time.Second); err == nil {
 		t.Error("socket should not be connectable after stop")
 	}
 }

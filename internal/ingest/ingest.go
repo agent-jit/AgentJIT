@@ -3,10 +3,10 @@ package ingest
 import (
 	"fmt"
 	"io"
-	"net"
 	"time"
 
 	"github.com/anthropics/agentjit/internal/config"
+	"github.com/anthropics/agentjit/internal/transport"
 )
 
 // IngestFromReader reads a single JSON hook payload from r, normalizes it,
@@ -36,9 +36,9 @@ func IngestFromReader(r io.Reader, paths config.Paths, cfg config.Config) error 
 	return writer.Write(event)
 }
 
-// forwardToDaemon sends the raw payload to the daemon via Unix socket.
+// forwardToDaemon sends the raw payload to the daemon via IPC.
 func forwardToDaemon(socketPath string, data []byte) error {
-	conn, err := net.DialTimeout("unix", socketPath, 2*time.Second)
+	conn, err := transport.Dial(socketPath, 2*time.Second)
 	if err != nil {
 		return err
 	}
