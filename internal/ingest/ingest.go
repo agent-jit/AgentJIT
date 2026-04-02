@@ -44,7 +44,7 @@ func forwardToDaemon(socketPath string, data []byte) error {
 	}
 	defer conn.Close()
 
-	conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
 	_, err = conn.Write(data)
 	return err
 }

@@ -12,7 +12,7 @@ import (
 func TestIngestFromStdin(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 
 	input := `{
 		"session_id": "test_session",
@@ -54,7 +54,7 @@ func TestIngestFromStdin(t *testing.T) {
 func TestIngestEmptyInput(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 
 	cfg := config.DefaultConfig()
 	reader := bytes.NewReader([]byte(""))

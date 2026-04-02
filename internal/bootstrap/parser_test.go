@@ -21,7 +21,7 @@ func TestParseTranscript(t *testing.T) {
 
 	f, _ := os.Create(transcriptPath)
 	for _, line := range lines {
-		f.WriteString(line + "\n")
+		_, _ = f.WriteString(line + "\n")
 	}
 	f.Close()
 

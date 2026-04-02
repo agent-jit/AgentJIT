@@ -38,7 +38,7 @@ func TestInstallHooksIntoEmptySettings(t *testing.T) {
 	settingsPath := filepath.Join(dir, "settings.json")
 
 	// Write empty settings
-	os.WriteFile(settingsPath, []byte("{}"), 0644)
+	_ = os.WriteFile(settingsPath, []byte("{}"), 0644)
 
 	if err := InstallHooks(settingsPath); err != nil {
 		t.Fatalf("InstallHooks: %v", err)
@@ -47,7 +47,7 @@ func TestInstallHooksIntoEmptySettings(t *testing.T) {
 	// Read and verify
 	data, _ := os.ReadFile(settingsPath)
 	var settings map[string]interface{}
-	json.Unmarshal(data, &settings)
+	_ = json.Unmarshal(data, &settings)
 
 	hooks, ok := settings["hooks"]
 	if !ok {
@@ -77,7 +77,7 @@ func TestInstallHooksPreservesExisting(t *testing.T) {
 		},
 		"model": "opus"
 	}`
-	os.WriteFile(settingsPath, []byte(existing), 0644)
+	_ = os.WriteFile(settingsPath, []byte(existing), 0644)
 
 	if err := InstallHooks(settingsPath); err != nil {
 		t.Fatalf("InstallHooks: %v", err)
@@ -85,7 +85,7 @@ func TestInstallHooksPreservesExisting(t *testing.T) {
 
 	data, _ := os.ReadFile(settingsPath)
 	var settings map[string]interface{}
-	json.Unmarshal(data, &settings)
+	_ = json.Unmarshal(data, &settings)
 
 	// Verify existing hook is preserved
 	hooksMap := settings["hooks"].(map[string]interface{})
@@ -107,15 +107,15 @@ func TestInstallHooksPreservesExisting(t *testing.T) {
 func TestInstallHooksIdempotent(t *testing.T) {
 	dir := t.TempDir()
 	settingsPath := filepath.Join(dir, "settings.json")
-	os.WriteFile(settingsPath, []byte("{}"), 0644)
+	_ = os.WriteFile(settingsPath, []byte("{}"), 0644)
 
 	// Install twice
-	InstallHooks(settingsPath)
-	InstallHooks(settingsPath)
+	_ = InstallHooks(settingsPath)
+	_ = InstallHooks(settingsPath)
 
 	data, _ := os.ReadFile(settingsPath)
 	var settings map[string]interface{}
-	json.Unmarshal(data, &settings)
+	_ = json.Unmarshal(data, &settings)
 
 	// PostToolUse should have exactly 1 matcher group, not 2
 	hooksMap := settings["hooks"].(map[string]interface{})
@@ -136,7 +136,7 @@ func TestUninstallHooks(t *testing.T) {
 		},
 		"model": "opus"
 	}`
-	os.WriteFile(settingsPath, []byte(existing), 0644)
+	_ = os.WriteFile(settingsPath, []byte(existing), 0644)
 
 	if err := UninstallHooks(settingsPath); err != nil {
 		t.Fatalf("UninstallHooks: %v", err)
@@ -144,7 +144,7 @@ func TestUninstallHooks(t *testing.T) {
 
 	data, _ := os.ReadFile(settingsPath)
 	var settings map[string]interface{}
-	json.Unmarshal(data, &settings)
+	_ = json.Unmarshal(data, &settings)
 
 	hooksMap := settings["hooks"].(map[string]interface{})
 

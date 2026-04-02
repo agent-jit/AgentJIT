@@ -12,7 +12,7 @@ import (
 func TestIdleTimeoutShutdown(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 	cfg := config.DefaultConfig()
 	cfg.Daemon.IdleTimeoutMinutes = 0 // Use custom duration for testing
 
@@ -26,7 +26,7 @@ func TestIdleTimeoutShutdown(t *testing.T) {
 	stopped := make(chan struct{})
 	go func() {
 		defer wg.Done()
-		srv.Start()
+		_ = srv.Start()
 		close(stopped)
 	}()
 

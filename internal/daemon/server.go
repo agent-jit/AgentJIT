@@ -188,7 +188,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	defer s.wg.Done()
 	defer conn.Close()
 
-	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 
 	scanner := bufio.NewScanner(conn)
 	scanner.Buffer(make([]byte, 1024*1024), 1024*1024) // 1MB max

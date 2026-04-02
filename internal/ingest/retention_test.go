@@ -11,13 +11,13 @@ import (
 func TestCleanupOldLogs(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 
 	// Create fake date directories
 	dirs := []string{"2026-01-01", "2026-02-01", "2026-03-30", "2026-03-31", "2026-04-01"}
 	for _, d := range dirs {
 		dir := filepath.Join(paths.Logs, d)
-		os.MkdirAll(dir, 0755)
+		_ = os.MkdirAll(dir, 0755)
 		os.WriteFile(filepath.Join(dir, "test.jsonl"), []byte("{}"), 0644)
 	}
 

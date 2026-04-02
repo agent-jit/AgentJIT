@@ -53,7 +53,7 @@ func (w *Watcher) Start() {
 				path := event.Name
 				// If a new directory was created, watch it too (for skill subdirs)
 				if isDir(path) {
-					w.watcher.Add(path)
+					_ = w.watcher.Add(path)
 				}
 				// If a SKILL.md was created, notify
 				if strings.HasSuffix(filepath.Base(path), "SKILL.md") {

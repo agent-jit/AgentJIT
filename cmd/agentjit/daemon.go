@@ -106,13 +106,13 @@ var daemonStopCmd = &cobra.Command{
 			pid, _ := daemon.ReadPID(paths.PID)
 			proc, _ := os.FindProcess(pid)
 			if proc != nil {
-				proc.Signal(os.Interrupt)
+				_ = proc.Signal(os.Interrupt)
 			}
 			daemon.RemovePID(paths.PID)
 			fmt.Println("[AJ] Daemon stopped (via signal)")
 			return nil
 		}
-		conn.Write([]byte("SHUTDOWN\n"))
+		_, _ = conn.Write([]byte("SHUTDOWN\n"))
 		conn.Close()
 
 		fmt.Println("[AJ] Daemon stopped")

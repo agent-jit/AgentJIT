@@ -12,8 +12,8 @@ func TestScanSkillsDir(t *testing.T) {
 
 	// Create a skill directory with SKILL.md and metadata.json
 	skillDir := filepath.Join(dir, "get-logs")
-	os.MkdirAll(skillDir, 0755)
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
+	_ = os.MkdirAll(skillDir, 0755)
+	_ = os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
 name: get-logs
 description: Fetch logs from pods
 ---
@@ -29,7 +29,7 @@ Fetch logs.
 		"source_pattern_hash": "get-logs-v1",
 	}
 	metaJSON, _ := json.Marshal(meta)
-	os.WriteFile(filepath.Join(skillDir, "metadata.json"), metaJSON, 0644)
+	_ = os.WriteFile(filepath.Join(skillDir, "metadata.json"), metaJSON, 0644)
 
 	skills, err := ScanSkillsDir(dir)
 	if err != nil {

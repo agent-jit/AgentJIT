@@ -14,7 +14,7 @@ import (
 func TestServerStartAndAcceptEvent(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 	cfg := config.DefaultConfig()
 
 	socketPath := filepath.Join(root, "test.sock")
@@ -24,7 +24,7 @@ func TestServerStartAndAcceptEvent(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srv.Start()
+		_ = srv.Start()
 	}()
 
 	// Wait for server to start
@@ -45,7 +45,7 @@ func TestServerStartAndAcceptEvent(t *testing.T) {
 	}
 	data, _ := json.Marshal(payload)
 	data = append(data, '\n')
-	conn.Write(data)
+	_, _ = conn.Write(data)
 	conn.Close()
 
 	// Give server time to process
@@ -64,7 +64,7 @@ func TestServerStartAndAcceptEvent(t *testing.T) {
 func TestServerShutdownCleansSocket(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 	cfg := config.DefaultConfig()
 
 	socketPath := filepath.Join(root, "test.sock")
@@ -74,7 +74,7 @@ func TestServerShutdownCleansSocket(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		srv.Start()
+		_ = srv.Start()
 	}()
 
 	time.Sleep(100 * time.Millisecond)

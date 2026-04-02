@@ -11,7 +11,7 @@ import (
 func createTestSkill(t *testing.T, dir, name string, savingsPerInvocation int, frequency int) {
 	t.Helper()
 	skillDir := filepath.Join(dir, name)
-	os.MkdirAll(skillDir, 0755)
+	_ = os.MkdirAll(skillDir, 0755)
 
 	skillContent := `---
 name: ` + name + `
@@ -21,7 +21,7 @@ description: Test skill
 ## Usage
 Test skill.
 `
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillContent), 0644)
+	_ = os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillContent), 0644)
 
 	meta := map[string]interface{}{
 		"generated_by":        "aj",
@@ -37,7 +37,7 @@ Test skill.
 		},
 	}
 	metaJSON, _ := json.MarshalIndent(meta, "", "  ")
-	os.WriteFile(filepath.Join(skillDir, "metadata.json"), metaJSON, 0644)
+	_ = os.WriteFile(filepath.Join(skillDir, "metadata.json"), metaJSON, 0644)
 }
 
 func TestListSkills(t *testing.T) {

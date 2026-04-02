@@ -77,6 +77,6 @@ func StartDaemonProcess() error {
 	}
 
 	// Detach from child
-	proc.Release()
+	_ = proc.Release()
 	return nil
 }

@@ -68,7 +68,7 @@ func TestWriteEvent(t *testing.T) {
 func TestWriteMultipleEvents(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 
 	w := NewWriter(paths)
 
@@ -103,7 +103,7 @@ func TestWriteMultipleEvents(t *testing.T) {
 func TestWriteDifferentSessions(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 
 	w := NewWriter(paths)
 
@@ -118,8 +118,8 @@ func TestWriteDifferentSessions(t *testing.T) {
 		WorkingDirectory: "/dev",
 	}
 
-	w.Write(e1)
-	w.Write(e2)
+	_ = w.Write(e1)
+	_ = w.Write(e2)
 
 	fileA := filepath.Join(root, "logs", "2026-04-01", "session_a.jsonl")
 	fileB := filepath.Join(root, "logs", "2026-04-01", "session_b.jsonl")

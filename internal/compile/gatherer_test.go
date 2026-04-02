@@ -15,7 +15,7 @@ func writeTestEvent(t *testing.T, dir, sessionID string, ts time.Time) {
 	t.Helper()
 	dateKey := ts.Format("2006-01-02")
 	dateDir := filepath.Join(dir, dateKey)
-	os.MkdirAll(dateDir, 0755)
+	_ = os.MkdirAll(dateDir, 0755)
 
 	event := ingest.Event{
 		Timestamp:        ts,
@@ -31,14 +31,14 @@ func writeTestEvent(t *testing.T, dir, sessionID string, ts time.Time) {
 
 	path := filepath.Join(dateDir, sessionID+".jsonl")
 	f, _ := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	f.Write(data)
+	_, _ = f.Write(data)
 	f.Close()
 }
 
 func TestGatherUnprocessedLogs(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 
 	// Write events across dates
 	t1 := time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC)
@@ -48,7 +48,7 @@ func TestGatherUnprocessedLogs(t *testing.T) {
 
 	// Set marker to before t2 but after t1
 	marker := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
-	WriteMarker(paths.CompileMarker, marker)
+	_ = WriteMarker(paths.CompileMarker, marker)
 
 	events, err := GatherUnprocessedLogs(paths, 50000)
 	if err != nil {
@@ -63,7 +63,7 @@ func TestGatherUnprocessedLogs(t *testing.T) {
 func TestGatherAllLogsNoMarker(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 
 	t1 := time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC)
 	t2 := time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC)
@@ -83,7 +83,7 @@ func TestGatherAllLogsNoMarker(t *testing.T) {
 func TestGatherRespectsMaxLines(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 
 	ts := time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC)
 	for i := 0; i < 10; i++ {

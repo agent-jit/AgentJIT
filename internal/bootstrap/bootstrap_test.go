@@ -18,7 +18,7 @@ func createFakeTranscript(t *testing.T, dir, sessionID string) string {
 	}
 	f, _ := os.Create(path)
 	for _, l := range lines {
-		f.WriteString(l + "\n")
+		_, _ = f.WriteString(l + "\n")
 	}
 	f.Close()
 	return path
@@ -27,13 +27,13 @@ func createFakeTranscript(t *testing.T, dir, sessionID string) string {
 func TestRunBootstrap(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 	cfg := config.DefaultConfig()
 
 	// Create fake Claude projects directory
 	claudeProjectsDir := filepath.Join(root, "claude-projects")
 	projectDir := filepath.Join(claudeProjectsDir, "-Users-dev-project")
-	os.MkdirAll(projectDir, 0755)
+	_ = os.MkdirAll(projectDir, 0755)
 
 	createFakeTranscript(t, projectDir, "session-001")
 	createFakeTranscript(t, projectDir, "session-002")
@@ -62,7 +62,7 @@ func TestRunBootstrap(t *testing.T) {
 		t.Fatalf("reading bootstrap_processed: %v", err)
 	}
 	var processed ProcessedFiles
-	json.Unmarshal(data, &processed)
+	_ = json.Unmarshal(data, &processed)
 	if len(processed.Files) != 2 {
 		t.Errorf("processed files = %d, want 2", len(processed.Files))
 	}
@@ -71,17 +71,17 @@ func TestRunBootstrap(t *testing.T) {
 func TestRunBootstrapIdempotent(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 	cfg := config.DefaultConfig()
 
 	claudeProjectsDir := filepath.Join(root, "claude-projects")
 	projectDir := filepath.Join(claudeProjectsDir, "-Users-dev-project")
-	os.MkdirAll(projectDir, 0755)
+	_ = os.MkdirAll(projectDir, 0755)
 
 	createFakeTranscript(t, projectDir, "session-001")
 
 	// Run twice
-	RunBootstrap(paths, cfg, claudeProjectsDir, BootstrapOptions{})
+	_, _ = RunBootstrap(paths, cfg, claudeProjectsDir, BootstrapOptions{})
 	result, _ := RunBootstrap(paths, cfg, claudeProjectsDir, BootstrapOptions{})
 
 	if result.SessionsProcessed != 0 {
@@ -92,12 +92,12 @@ func TestRunBootstrapIdempotent(t *testing.T) {
 func TestRunBootstrapDryRun(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
-	paths.EnsureDirs()
+	_ = paths.EnsureDirs()
 	cfg := config.DefaultConfig()
 
 	claudeProjectsDir := filepath.Join(root, "claude-projects")
 	projectDir := filepath.Join(claudeProjectsDir, "-Users-dev-project")
-	os.MkdirAll(projectDir, 0755)
+	_ = os.MkdirAll(projectDir, 0755)
 
 	createFakeTranscript(t, projectDir, "session-001")
 

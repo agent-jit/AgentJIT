@@ -12,7 +12,7 @@ import (
 // Idempotent -- replaces any existing AJ/legacy hooks with current versions.
 func InstallHooks(settingsPath string) error {
 	// First remove any existing AJ or legacy hooks
-	UninstallHooks(settingsPath)
+	_ = UninstallHooks(settingsPath)
 
 	settings, err := readSettings(settingsPath)
 	if err != nil {
@@ -33,7 +33,7 @@ func InstallHooks(settingsPath string) error {
 		for _, group := range groups {
 			groupJSON, _ := json.Marshal(group)
 			var groupMap interface{}
-			json.Unmarshal(groupJSON, &groupMap)
+			_ = json.Unmarshal(groupJSON, &groupMap)
 			existing = append(existing, groupMap)
 		}
 		hooksObj[event] = existing
@@ -108,29 +108,6 @@ func UninstallHooks(settingsPath string) error {
 	return writeSettings(settingsPath, settings)
 }
 
-func hasAJHooks(groups []interface{}) bool {
-	for _, g := range groups {
-		groupMap, ok := g.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		handlers, ok := groupMap["hooks"].([]interface{})
-		if !ok {
-			continue
-		}
-		for _, h := range handlers {
-			hm, ok := h.(map[string]interface{})
-			if !ok {
-				continue
-			}
-			cmd, _ := hm["command"].(string)
-			if isAJHook(cmd) {
-				return true
-			}
-		}
-	}
-	return false
-}
 
 func readSettings(path string) (map[string]interface{}, error) {
 	data, err := os.ReadFile(path)
