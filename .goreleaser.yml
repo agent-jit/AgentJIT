@@ -25,8 +25,9 @@ checksum:
   algorithm: sha256
 
 release:
-  owner: agent-jit
-  name: AgentJIT
+  github:
+    owner: agent-jit
+    name: AgentJIT
 
 changelog:
   sort: asc
