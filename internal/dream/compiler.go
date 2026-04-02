@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/anthropics/agentjit/internal/config"
 	"github.com/anthropics/agentjit/internal/ingest"
 	"github.com/anthropics/agentjit/internal/skills"
@@ -119,12 +121,16 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 	tmpFile.Close()
 
 	// 6. Invoke Claude
+	sessionID := uuid.New().String()
 	fmt.Printf("[AgentJIT] Starting dream compilation (%d events, %d existing skills)\n",
 		len(events), len(existingSkills))
-	fmt.Println("[AgentJIT] Invoking Claude for pattern analysis — this may take a few minutes...")
+	fmt.Printf("[AgentJIT] Session: %s\n", sessionID)
+	fmt.Printf("[AgentJIT] Attach from another terminal: claude --resume %s\n", sessionID)
 
 	cmd := exec.Command("claude",
 		"--print",
+		"--session-id", sessionID,
+		"--name", "agentjit-dream",
 		"-p", prompt,
 		"--allowedTools", "Read,Write,Bash,Glob,Grep",
 	)
