@@ -120,12 +120,14 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 	tmpFile.WriteString(context)
 	tmpFile.Close()
 
-	// 6. Invoke Claude
+	// 6. Invoke Claude from home directory so session is discoverable everywhere
+	homeDir, _ := os.UserHomeDir()
 	sessionID := uuid.New().String()
 	fmt.Printf("[AgentJIT] Starting dream compilation (%d events, %d existing skills)\n",
 		len(events), len(existingSkills))
 	fmt.Printf("[AgentJIT] Session: %s\n", sessionID)
-	fmt.Printf("[AgentJIT] Attach from another terminal: claude --resume %s\n", sessionID)
+	fmt.Printf("[AgentJIT] Attach from another terminal:\n")
+	fmt.Printf("  cd ~ && claude --resume %s\n", sessionID)
 
 	cmd := exec.Command("claude",
 		"--print",
@@ -133,7 +135,9 @@ func RunDream(paths config.Paths, cfg config.Config, promptPath string) error {
 		"--name", "agentjit-dream",
 		"-p", prompt,
 		"--allowedTools", "Read,Write,Bash,Glob,Grep",
+		"--add-dir", paths.Skills,
 	)
+	cmd.Dir = homeDir
 
 	contextData, _ := os.ReadFile(tmpFile.Name())
 	cmd.Stdin = strings.NewReader(string(contextData))
