@@ -66,6 +66,20 @@ flowchart LR
 | >30s stochastic reasoning | <1s deterministic execution |
 | Manual skill authoring | Automatic pattern compilation |
 
+## Supported Agent Harnesses
+
+AJ's ingestion layer is designed to work across multiple agent harnesses. Currently Claude Code is fully supported, with more coming soon.
+
+| Harness | Status | Hook Mechanism | Notes |
+|---------|--------|----------------|-------|
+| [Claude Code](https://claude.ai/code) | **Supported** | Native hooks (PostToolUse, SessionStart, SessionEnd) | Full support via `aj init` |
+| [Codex](https://github.com/openai/codex) | Planned | — | — |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | Planned | — | — |
+| [GitHub Copilot](https://github.com/features/copilot) | Planned | — | — |
+| [Cursor](https://cursor.com) | Planned | — | — |
+
+> Want support for another harness? Open an issue.
+
 ## Installation
 
 ```bash
