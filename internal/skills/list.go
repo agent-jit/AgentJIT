@@ -2,10 +2,10 @@ package skills
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -38,14 +38,36 @@ func ListSkills(dir string) ([]SkillInfo, error) {
 			continue
 		}
 
-		skillPath := filepath.Join(dir, entry.Name(), "skill.md")
+		skillPath := filepath.Join(dir, entry.Name(), "SKILL.md")
 		data, err := os.ReadFile(skillPath)
 		if err != nil {
 			continue
 		}
 
-		info := parseSkillInfo(string(data))
+		info := parseSkillMDInfo(string(data))
 		info.Path = filepath.Join(dir, entry.Name())
+
+		// Read AJ-specific metadata from metadata.json
+		metadataPath := filepath.Join(dir, entry.Name(), "metadata.json")
+		if mjson, err := os.ReadFile(metadataPath); err == nil {
+			var ajMeta struct {
+				Version int    `json:"version"`
+				Scope   string `json:"scope"`
+				ROI     struct {
+					SavingsPerInvocation int `json:"savings_per_invocation"`
+					ObservedFrequency    int `json:"observed_frequency"`
+					TotalProjectedSavings int `json:"total_projected_savings"`
+				} `json:"roi"`
+			}
+			if json.Unmarshal(mjson, &ajMeta) == nil {
+				info.Version = fmt.Sprintf("%d", ajMeta.Version)
+				info.Scope = ajMeta.Scope
+				info.SavingsPerInvocation = ajMeta.ROI.SavingsPerInvocation
+				info.ObservedFrequency = ajMeta.ROI.ObservedFrequency
+				info.TotalSavings = ajMeta.ROI.TotalProjectedSavings
+			}
+		}
+
 		if info.Name == "" {
 			info.Name = entry.Name()
 		}
@@ -65,10 +87,10 @@ func RemoveSkill(skillsDir, name string) error {
 	return os.RemoveAll(skillPath)
 }
 
-func parseSkillInfo(content string) SkillInfo {
+// parseSkillMDInfo extracts name and description from SKILL.md frontmatter.
+func parseSkillMDInfo(content string) SkillInfo {
 	var info SkillInfo
 	inFrontmatter := false
-	inROI := false
 
 	scanner := bufio.NewScanner(strings.NewReader(content))
 	for scanner.Scan() {
@@ -86,18 +108,7 @@ func parseSkillInfo(content string) SkillInfo {
 			continue
 		}
 
-		trimmed := strings.TrimSpace(line)
-
-		if strings.HasPrefix(trimmed, "roi:") {
-			inROI = true
-			continue
-		}
-
-		if inROI && !strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "\t") {
-			inROI = false
-		}
-
-		parts := strings.SplitN(trimmed, ":", 2)
+		parts := strings.SplitN(strings.TrimSpace(line), ":", 2)
 		if len(parts) != 2 {
 			continue
 		}
@@ -105,26 +116,11 @@ func parseSkillInfo(content string) SkillInfo {
 		key := strings.TrimSpace(parts[0])
 		val := strings.TrimSpace(parts[1])
 
-		if inROI {
-			switch key {
-			case "savings_per_invocation":
-				info.SavingsPerInvocation, _ = strconv.Atoi(val)
-			case "observed_frequency":
-				info.ObservedFrequency, _ = strconv.Atoi(val)
-			case "total_projected_savings":
-				info.TotalSavings, _ = strconv.Atoi(val)
-			}
-		} else {
-			switch key {
-			case "name":
-				info.Name = val
-			case "description":
-				info.Description = val
-			case "scope":
-				info.Scope = val
-			case "version":
-				info.Version = val
-			}
+		switch key {
+		case "name":
+			info.Name = val
+		case "description":
+			info.Description = val
 		}
 	}
 

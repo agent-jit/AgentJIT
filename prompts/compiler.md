@@ -67,7 +67,7 @@ Read the full session file: ~/.aj/logs/2026-03-03/abc-123.jsonl
 **IMPORTANT:** Never try to read all log files at once. Use Grep to search across files, then Read individual sessions to understand the full sequence.
 
 ### Existing Skills
-Check `skills_dir` from the manifest. If it contains skill directories, read their `skill.md` files to understand what's already been compiled.
+Check `skills_dir` from the manifest. If it contains skill directories, read their `SKILL.md` and `metadata.json` files to understand what's already been compiled.
 
 ## Your Job
 
@@ -115,13 +115,35 @@ Before writing any files, output your proposed changes:
 ### Step 7: Generate Skills
 For each approved pattern, create a skill directory with:
 
-**skill.md** — with YAML frontmatter containing:
-- name, description, generated_by (always "aj"), version, created, updated
-- source_pattern_hash (hash of the pattern's tool sequence)
-- scope (global/local)
-- roi (stochastic_tokens_avg, deterministic_tokens_avg, savings_per_invocation, observed_frequency, total_projected_savings)
+**SKILL.md** — Claude Code skill file with standard YAML frontmatter:
+```yaml
+---
+name: <skill-name>
+description: <what this skill does and when to use it>
+---
+```
+Only use fields supported by Claude Code: `name`, `description`, `disable-model-invocation`, `user-invocable`, `allowed-tools`, `model`, `effort`, `context`, `agent`, `hooks`, `paths`, `shell`, `argument-hint`.
 
 Then a body with: Usage, Parameters, and Execution sections.
+
+**metadata.json** — AJ-specific metadata (kept separate from skill frontmatter):
+```json
+{
+  "generated_by": "aj",
+  "version": 1,
+  "created": "2026-04-02",
+  "updated": "2026-04-02",
+  "source_pattern_hash": "<hash of the pattern's tool sequence>",
+  "scope": "global|local",
+  "roi": {
+    "stochastic_tokens_avg": 1500,
+    "deterministic_tokens_avg": 200,
+    "savings_per_invocation": 1300,
+    "observed_frequency": 35,
+    "total_projected_savings": 45500
+  }
+}
+```
 
 **companion script (.sh)** — a bash script that:
 - Uses `set -euo pipefail`

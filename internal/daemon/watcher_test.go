@@ -29,7 +29,7 @@ func TestWatcherDetectsNewSkill(t *testing.T) {
 	skillDir := filepath.Join(dir, "new-skill")
 	os.MkdirAll(skillDir, 0755)
 	time.Sleep(200 * time.Millisecond)
-	os.WriteFile(filepath.Join(skillDir, "skill.md"), []byte("test"), 0644)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("test"), 0644)
 
 	// Wait for notification
 	select {

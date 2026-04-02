@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,25 +13,31 @@ func createTestSkill(t *testing.T, dir, name string, savingsPerInvocation int, f
 	skillDir := filepath.Join(dir, name)
 	os.MkdirAll(skillDir, 0755)
 
-	content := `---
+	skillContent := `---
 name: ` + name + `
 description: Test skill
-generated_by: agentjit
-version: 1
-created: 2026-04-01T06:00:00Z
-scope: global
-roi:
-  stochastic_tokens_avg: 18500
-  deterministic_tokens_avg: 200
-  savings_per_invocation: ` + fmt.Sprintf("%d", savingsPerInvocation) + `
-  observed_frequency: ` + fmt.Sprintf("%d", frequency) + `
-  total_projected_savings: ` + fmt.Sprintf("%d", savingsPerInvocation*frequency) + `
 ---
 
 ## Usage
 Test skill.
 `
-	os.WriteFile(filepath.Join(skillDir, "skill.md"), []byte(content), 0644)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillContent), 0644)
+
+	meta := map[string]interface{}{
+		"generated_by":        "aj",
+		"version":             1,
+		"scope":               "global",
+		"source_pattern_hash": name + "-v1",
+		"roi": map[string]interface{}{
+			"stochastic_tokens_avg":  18500,
+			"deterministic_tokens_avg": 200,
+			"savings_per_invocation":  savingsPerInvocation,
+			"observed_frequency":      frequency,
+			"total_projected_savings": savingsPerInvocation * frequency,
+		},
+	}
+	metaJSON, _ := json.MarshalIndent(meta, "", "  ")
+	os.WriteFile(filepath.Join(skillDir, "metadata.json"), metaJSON, 0644)
 }
 
 func TestListSkills(t *testing.T) {
@@ -45,6 +52,27 @@ func TestListSkills(t *testing.T) {
 
 	if len(skills) != 2 {
 		t.Fatalf("got %d skills, want 2", len(skills))
+	}
+
+	// Find get-logs skill and verify ROI was read from metadata.json
+	for _, s := range skills {
+		if s.Name == "get-logs" {
+			if s.SavingsPerInvocation != 18300 {
+				t.Errorf("SavingsPerInvocation = %d, want 18300", s.SavingsPerInvocation)
+			}
+			if s.ObservedFrequency != 7 {
+				t.Errorf("ObservedFrequency = %d, want 7", s.ObservedFrequency)
+			}
+			if s.TotalSavings != 18300*7 {
+				t.Errorf("TotalSavings = %d, want %d", s.TotalSavings, 18300*7)
+			}
+			if s.Scope != "global" {
+				t.Errorf("Scope = %q, want global", s.Scope)
+			}
+			if s.Version != fmt.Sprintf("%d", 1) {
+				t.Errorf("Version = %q, want 1", s.Version)
+			}
+		}
 	}
 }
 

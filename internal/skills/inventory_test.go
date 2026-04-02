@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,24 +10,26 @@ import (
 func TestScanSkillsDir(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create a skill directory with skill.md
+	// Create a skill directory with SKILL.md and metadata.json
 	skillDir := filepath.Join(dir, "get-logs")
 	os.MkdirAll(skillDir, 0755)
-	os.WriteFile(filepath.Join(skillDir, "skill.md"), []byte(`---
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
 name: get-logs
 description: Fetch logs from pods
-generated_by: agentjit
-version: 1
-created: 2026-04-01T06:00:00Z
-scope: global
-roi:
-  savings_per_invocation: 18300
-  observed_frequency: 7
 ---
 
 ## Usage
 Fetch logs.
 `), 0644)
+
+	meta := map[string]interface{}{
+		"generated_by":        "aj",
+		"version":             1,
+		"scope":               "global",
+		"source_pattern_hash": "get-logs-v1",
+	}
+	metaJSON, _ := json.Marshal(meta)
+	os.WriteFile(filepath.Join(skillDir, "metadata.json"), metaJSON, 0644)
 
 	skills, err := ScanSkillsDir(dir)
 	if err != nil {
@@ -41,8 +44,11 @@ Fetch logs.
 	if s.Name != "get-logs" {
 		t.Errorf("Name = %q, want get-logs", s.Name)
 	}
-	if s.GeneratedBy != "agentjit" {
-		t.Errorf("GeneratedBy = %q, want agentjit", s.GeneratedBy)
+	if s.GeneratedBy != "aj" {
+		t.Errorf("GeneratedBy = %q, want aj", s.GeneratedBy)
+	}
+	if s.Scope != "global" {
+		t.Errorf("Scope = %q, want global", s.Scope)
 	}
 }
 

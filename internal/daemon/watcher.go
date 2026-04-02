@@ -55,8 +55,8 @@ func (w *Watcher) Start() {
 				if isDir(path) {
 					w.watcher.Add(path)
 				}
-				// If a skill.md was created, notify
-				if strings.HasSuffix(filepath.Base(path), "skill.md") {
+				// If a SKILL.md was created, notify
+				if strings.HasSuffix(filepath.Base(path), "SKILL.md") {
 					w.onNewSkill(path)
 				}
 			}

@@ -2,12 +2,13 @@ package skills
 
 import (
 	"bufio"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-// SkillMeta holds metadata parsed from a skill.md frontmatter.
+// SkillMeta holds metadata for a compiled skill.
 type SkillMeta struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -35,7 +36,7 @@ func ScanSkillsDir(root string) ([]SkillMeta, error) {
 			continue
 		}
 
-		skillPath := filepath.Join(root, entry.Name(), "skill.md")
+		skillPath := filepath.Join(root, entry.Name(), "SKILL.md")
 		data, err := os.ReadFile(skillPath)
 		if err != nil {
 			continue
@@ -44,6 +45,21 @@ func ScanSkillsDir(root string) ([]SkillMeta, error) {
 		meta := parseSkillFrontmatter(string(data))
 		meta.Path = filepath.Join(root, entry.Name())
 		meta.RawContent = string(data)
+
+		// Merge AJ-specific metadata from metadata.json
+		metadataPath := filepath.Join(root, entry.Name(), "metadata.json")
+		if mjson, err := os.ReadFile(metadataPath); err == nil {
+			var ajMeta struct {
+				GeneratedBy string `json:"generated_by"`
+				Version     int    `json:"version"`
+				Scope       string `json:"scope"`
+			}
+			if json.Unmarshal(mjson, &ajMeta) == nil {
+				meta.GeneratedBy = ajMeta.GeneratedBy
+				meta.Version = ajMeta.Version
+				meta.Scope = ajMeta.Scope
+			}
+		}
 
 		if meta.Name == "" {
 			meta.Name = entry.Name()
@@ -55,6 +71,7 @@ func ScanSkillsDir(root string) ([]SkillMeta, error) {
 	return skills, nil
 }
 
+// parseSkillFrontmatter extracts only standard Claude Code fields (name, description).
 func parseSkillFrontmatter(content string) SkillMeta {
 	var meta SkillMeta
 
@@ -89,10 +106,6 @@ func parseSkillFrontmatter(content string) SkillMeta {
 			meta.Name = val
 		case "description":
 			meta.Description = val
-		case "generated_by":
-			meta.GeneratedBy = val
-		case "scope":
-			meta.Scope = val
 		}
 	}
 
