@@ -1,81 +1,113 @@
 package dream
 
 import (
+	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
-	"github.com/anthropics/agentjit/internal/skills"
 )
 
-func TestBuildContext(t *testing.T) {
-	cfg := config.DefaultConfig()
+func TestBuildManifest(t *testing.T) {
+	dir := t.TempDir()
+	paths := config.PathsFromRoot(dir)
+	paths.EnsureDirs()
 
-	events := []ingest.Event{
-		{
-			Timestamp:        time.Now(),
-			SessionID:        "s1",
-			Harness:          "claude-code",
-			EventType:        "post_tool_use",
-			ToolName:         "Bash",
-			ToolInput:        map[string]interface{}{"command": "ls"},
-			WorkingDirectory: "/dev",
-		},
+	// Create a session log file
+	dateDir := filepath.Join(paths.Logs, "2026-04-01")
+	os.MkdirAll(dateDir, 0755)
+
+	events := []string{
+		`{"timestamp":"2026-04-01T10:00:00Z","session_id":"s1","event_type":"post_tool_use","tool_name":"Bash","tool_input":{"command":"ls"},"working_directory":"/dev"}`,
+		`{"timestamp":"2026-04-01T10:01:00Z","session_id":"s1","event_type":"post_tool_use","tool_name":"Read","tool_input":{"file_path":"/dev/main.go"},"working_directory":"/dev"}`,
 	}
+	os.WriteFile(filepath.Join(dateDir, "s1.jsonl"), []byte(strings.Join(events, "\n")), 0644)
 
-	existingSkills := []skills.SkillMeta{
-		{Name: "get-logs", Description: "Fetch logs", GeneratedBy: "agentjit"},
-	}
-
-	context, err := BuildContext(events, existingSkills, cfg)
+	manifest, err := BuildManifest(paths)
 	if err != nil {
-		t.Fatalf("BuildContext: %v", err)
+		t.Fatalf("BuildManifest: %v", err)
 	}
 
-	if !strings.Contains(context, "s1") {
-		t.Error("context should contain session ID")
+	if manifest.TotalSessions != 1 {
+		t.Errorf("total_sessions = %d, want 1", manifest.TotalSessions)
 	}
-	if !strings.Contains(context, "get-logs") {
-		t.Error("context should contain existing skill name")
+	if manifest.TotalEvents != 2 {
+		t.Errorf("total_events = %d, want 2", manifest.TotalEvents)
 	}
-	if !strings.Contains(context, "EXECUTION LOGS") {
-		t.Error("context should have EXECUTION LOGS section header")
+	if manifest.DateRange[0] != "2026-04-01" {
+		t.Errorf("date_range[0] = %q, want 2026-04-01", manifest.DateRange[0])
 	}
-	if !strings.Contains(context, "EXISTING SKILLS") {
-		t.Error("context should have EXISTING SKILLS section header")
+	if len(manifest.Sessions) != 1 {
+		t.Fatalf("sessions = %d, want 1", len(manifest.Sessions))
+	}
+
+	s := manifest.Sessions[0]
+	if s.SessionID != "s1" {
+		t.Errorf("session_id = %q, want s1", s.SessionID)
+	}
+	if s.EventCount != 2 {
+		t.Errorf("event_count = %d, want 2", s.EventCount)
+	}
+	if s.WorkingDirectory != "/dev" {
+		t.Errorf("working_directory = %q, want /dev", s.WorkingDirectory)
+	}
+	// Tool names should include Bash and Read
+	toolStr := strings.Join(s.ToolNames, ",")
+	if !strings.Contains(toolStr, "Bash") || !strings.Contains(toolStr, "Read") {
+		t.Errorf("tool_names = %v, want Bash and Read", s.ToolNames)
 	}
 }
 
-func TestBuildContextNoSkills(t *testing.T) {
-	cfg := config.DefaultConfig()
+func TestBuildManifestEmpty(t *testing.T) {
+	dir := t.TempDir()
+	paths := config.PathsFromRoot(dir)
+	paths.EnsureDirs()
 
-	events := []ingest.Event{
-		{
-			Timestamp:        time.Now(),
-			SessionID:        "s2",
-			Harness:          "claude-code",
-			EventType:        "session_start",
-			WorkingDirectory: "/tmp",
-		},
-	}
-
-	context, err := BuildContext(events, nil, cfg)
+	manifest, err := BuildManifest(paths)
 	if err != nil {
-		t.Fatalf("BuildContext: %v", err)
+		t.Fatalf("BuildManifest: %v", err)
 	}
 
-	if !strings.Contains(context, "No existing skills.") {
-		t.Error("context should indicate no existing skills")
+	if manifest.TotalSessions != 0 {
+		t.Errorf("total_sessions = %d, want 0", manifest.TotalSessions)
+	}
+}
+
+func TestBuildManifestJSON(t *testing.T) {
+	dir := t.TempDir()
+	paths := config.PathsFromRoot(dir)
+	paths.EnsureDirs()
+
+	dateDir := filepath.Join(paths.Logs, "2026-03-15")
+	os.MkdirAll(dateDir, 0755)
+	os.WriteFile(filepath.Join(dateDir, "abc.jsonl"),
+		[]byte(`{"timestamp":"2026-03-15T10:00:00Z","session_id":"abc","tool_name":"Bash","working_directory":"/tmp"}`+"\n"), 0644)
+
+	manifest, err := BuildManifest(paths)
+	if err != nil {
+		t.Fatalf("BuildManifest: %v", err)
+	}
+
+	data, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	// Verify it's valid JSON with expected fields
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if parsed["total_sessions"].(float64) != 1 {
+		t.Error("JSON total_sessions should be 1")
 	}
 }
 
 func TestBuildPrompt(t *testing.T) {
 	cfg := config.DefaultConfig()
 
-	// Create a temp prompt file
 	dir := t.TempDir()
 	promptPath := dir + "/compiler.md"
 	os.WriteFile(promptPath, []byte("Template with {{MIN_PATTERN_FREQUENCY}} and {{GLOBAL_SKILLS_DIR}}"), 0644)
