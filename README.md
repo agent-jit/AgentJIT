@@ -82,17 +82,54 @@ AJ's ingestion layer is designed to work across multiple agent harnesses. Curren
 
 ## Installation
 
+### Homebrew (macOS / Linux)
+
+```bash
+brew install agent-jit/tap/aj
+```
+
+### Shell Script (macOS / Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/agent-jit/AgentJIT/main/install.sh | sh
+```
+
+### Manual Download
+
+Download the latest binary from [Releases](https://github.com/agent-jit/AgentJIT/releases) and place it on your `PATH`:
+
+```bash
+# macOS (Apple Silicon)
+curl -Lo aj.tar.gz https://github.com/agent-jit/AgentJIT/releases/latest/download/aj_$(curl -s https://api.github.com/repos/agent-jit/AgentJIT/releases/latest | grep tag_name | cut -d '"' -f4 | tr -d v)_darwin_arm64.tar.gz
+tar xzf aj.tar.gz aj
+sudo mv aj /usr/local/bin/
+rm aj.tar.gz
+
+# macOS (Intel)
+curl -Lo aj.tar.gz https://github.com/agent-jit/AgentJIT/releases/latest/download/aj_$(curl -s https://api.github.com/repos/agent-jit/AgentJIT/releases/latest | grep tag_name | cut -d '"' -f4 | tr -d v)_darwin_amd64.tar.gz
+tar xzf aj.tar.gz aj
+sudo mv aj /usr/local/bin/
+rm aj.tar.gz
+
+# Linux (x86_64)
+curl -Lo aj.tar.gz https://github.com/agent-jit/AgentJIT/releases/latest/download/aj_$(curl -s https://api.github.com/repos/agent-jit/AgentJIT/releases/latest | grep tag_name | cut -d '"' -f4 | tr -d v)_linux_amd64.tar.gz
+tar xzf aj.tar.gz aj
+sudo mv aj /usr/local/bin/
+rm aj.tar.gz
+```
+
+### Go Install
+
 ```bash
 go install github.com/anthropics/agentjit/cmd/agentjit@latest
 ```
 
-Or build from source:
+### Build from Source
 
 ```bash
-git clone https://github.com/anthropics/agentjit.git
-cd agentjit
-make build
-make install
+git clone https://github.com/agent-jit/AgentJIT.git
+cd AgentJIT
+make install    # builds and copies to /usr/local/bin/aj
 ```
 
 ## Quick Start
@@ -193,6 +230,7 @@ flowchart TB
 │   └── 2026-04-01/
 │       └── session_abc123.jsonl
 ├── skills/                     # Compiled skills (auto-generated)
+├── stats.jsonl                 # Token usage and skill execution metrics
 ├── compile-log.jsonl           # Compiler activity log
 └── last_compile_marker         # Timestamp of last compile run
 ```
@@ -243,6 +281,9 @@ aj config reset
 | `aj config set KEY VAL` | Write config values |
 | `aj skills list` | List generated skills with ROI stats |
 | `aj skills remove NAME` | Remove a compiled skill |
+| `aj stats` | Show token usage statistics and ROI |
+| `aj stats --json` | Output stats as JSON |
+| `aj stats reset` | Clear recorded statistics |
 | `aj ingest` | Internal: receive hook JSON from stdin |
 
 ## Development
