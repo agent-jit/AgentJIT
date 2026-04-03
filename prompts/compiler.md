@@ -127,11 +127,13 @@ For each approved pattern, create a skill directory with this structure:
 ```yaml
 ---
 name: <skill-name>
-description: <what this skill does and when to use it>
+description: <what this skill does>. TRIGGER when: <specific conditions when Claude should auto-invoke this skill>. Invoke this skill BEFORE <what manual alternative to avoid>.
 user-invocable: true
 argument-hint: "<hint>"
 ---
 ```
+
+The `description` field is critical — it appears in Claude's system prompt and determines whether the skill is auto-invoked. Always include a `TRIGGER when:` clause that lists specific, concrete triggers (user phrases, file types, project context). End with "Invoke this skill BEFORE ..." to discourage Claude from manually reimplementing the skill's logic.
 
 Then a body with: Usage, Parameters, and Execution sections. In the Execution section, reference the companion script using `${CLAUDE_SKILL_DIR}` for portability — NEVER use absolute paths:
 ```markdown
