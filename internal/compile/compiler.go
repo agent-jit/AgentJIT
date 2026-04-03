@@ -2,11 +2,13 @@ package compile
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -256,7 +258,14 @@ func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) er
 			"Write generated skills to %s.",
 		compiledPromptPath, manifestPath, paths.Skills)
 
-	cmd := exec.Command("claude",
+	// Set up signal handling so Ctrl+C kills the Claude subprocess
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt)
+
+	cmd := exec.CommandContext(ctx, "claude",
 		"--print",
 		"--output-format", "json",
 		"--session-id", sessionID,
@@ -268,12 +277,30 @@ func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) er
 		"-p", userPrompt,
 	)
 	cmd.Dir = homeDir
+	setProcGroup(cmd)
 	var stdoutBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = os.Stderr
 
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("running claude: %w", err)
+	// Handle signals in background — kill subprocess and write marker
+	go func() {
+		sig, ok := <-sigCh
+		if !ok {
+			return
+		}
+		fmt.Printf("\n[AJ] Received %s, stopping Claude subprocess...\n", sig)
+		cancel()
+		killProcGroup(cmd)
+	}()
+
+	runErr := cmd.Run()
+	signal.Stop(sigCh)
+	close(sigCh)
+
+	if runErr != nil {
+		// Still write the marker so next compile is incremental
+		_ = WriteMarker(paths.CompileMarker, time.Now().UTC())
+		return fmt.Errorf("running claude: %w", runErr)
 	}
 
 	// Parse token usage from JSON output
