@@ -84,6 +84,10 @@ func SetField(cfg Config, key, value string) (Config, error) {
 		typed = value
 	}
 
+	if err := validateField(key, typed); err != nil {
+		return cfg, err
+	}
+
 	sectionMap[parts[1]] = typed
 	m[parts[0]] = sectionMap
 
@@ -98,4 +102,26 @@ func SetField(cfg Config, key, value string) (Config, error) {
 	}
 
 	return result, nil
+}
+
+// validTriggerModes lists the accepted values for compile.trigger_mode.
+var validTriggerModes = map[string]bool{
+	"manual":      true,
+	"interval":    true,
+	"event_count": true,
+}
+
+// validateField checks field-specific constraints before applying a value.
+func validateField(key string, value interface{}) error {
+	switch key {
+	case "compile.trigger_mode":
+		s, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("compile.trigger_mode must be a string")
+		}
+		if !validTriggerModes[s] {
+			return fmt.Errorf("invalid trigger_mode %q: must be one of manual, interval, event_count", s)
+		}
+	}
+	return nil
 }
