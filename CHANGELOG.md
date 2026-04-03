@@ -5,6 +5,17 @@ All notable changes to AgentJIT will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-04-03
+
+### Added
+- TRIGGER clauses in compiled skill descriptions for auto-invocation via the Skill tool
+- Install script (`install.sh`) and Windows download instructions in README
+
+### Fixed
+- Unchecked error return values to satisfy errcheck linter
+- Unsupported `allowed-tools` flag replaced with portable skill paths
+- Claude subprocess now killed on Ctrl+C with interrupt marker
+
 ## [0.1.2] - 2026-04-03
 
 ### Added
@@ -53,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fsnotify-based skill file watcher with daemon notifications
 - CI pipeline with goreleaser for cross-platform builds (linux, darwin, windows)
 
+[0.1.3]: https://github.com/agent-jit/AgentJIT/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/agent-jit/AgentJIT/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/agent-jit/AgentJIT/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/agent-jit/AgentJIT/releases/tag/v0.1.0
