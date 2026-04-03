@@ -113,18 +113,36 @@ Before writing any files, output your proposed changes:
 ```
 
 ### Step 7: Generate Skills
-For each approved pattern, create a skill directory with:
+For each approved pattern, create a skill directory with this structure:
+
+```
+<skill-name>/
+├── SKILL.md           # Claude Code skill file
+├── metadata.json      # AJ-specific metadata
+└── scripts/
+    └── <skill-name>.sh  # Companion shell script
+```
 
 **SKILL.md** — Claude Code skill file with standard YAML frontmatter:
 ```yaml
 ---
 name: <skill-name>
 description: <what this skill does and when to use it>
+user-invocable: true
+argument-hint: "<hint>"
 ---
 ```
-Only use fields supported by Claude Code: `name`, `description`, `disable-model-invocation`, `user-invocable`, `allowed-tools`, `model`, `effort`, `context`, `agent`, `hooks`, `paths`, `shell`, `argument-hint`.
 
-Then a body with: Usage, Parameters, and Execution sections.
+Then a body with: Usage, Parameters, and Execution sections. In the Execution section, reference the companion script using `${CLAUDE_SKILL_DIR}` for portability — NEVER use absolute paths:
+```markdown
+## Execution
+
+1. Run the companion script:
+
+```bash
+bash ${CLAUDE_SKILL_DIR}/scripts/<skill-name>.sh ${ARGUMENTS:-<default>}
+```
+```
 
 **metadata.json** — AJ-specific metadata (kept separate from skill frontmatter):
 ```json
@@ -145,7 +163,8 @@ Then a body with: Usage, Parameters, and Execution sections.
 }
 ```
 
-**companion script (.sh)** — a bash script that:
+**companion script (scripts/<skill-name>.sh)** — a bash script that:
+- Lives in the `scripts/` subdirectory of the skill directory
 - Uses `set -euo pipefail`
 - Takes parameters as positional arguments with usage messages
 - Includes the actual commands from the observed pattern
