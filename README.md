@@ -118,6 +118,18 @@ sudo mv aj /usr/local/bin/
 rm aj.tar.gz
 ```
 
+**Windows (PowerShell):**
+
+```powershell
+$release = Invoke-RestMethod "https://api.github.com/repos/agent-jit/AgentJIT/releases/latest"
+$version = $release.tag_name -replace '^v', ''
+$url = "https://github.com/agent-jit/AgentJIT/releases/latest/download/aj_${version}_windows_amd64.zip"
+Invoke-WebRequest -Uri $url -OutFile aj.zip
+Expand-Archive aj.zip -DestinationPath .
+Move-Item aj.exe "$env:LOCALAPPDATA\Microsoft\WindowsApps\aj.exe" -Force
+Remove-Item aj.zip
+```
+
 ### Go Install
 
 ```bash
