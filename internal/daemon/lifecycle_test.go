@@ -42,7 +42,9 @@ func TestIsRunning(t *testing.T) {
 	}
 
 	// Write current PID — should be running
-	WritePID(pidPath)
+	if err := WritePID(pidPath); err != nil {
+		t.Fatalf("WritePID: %v", err)
+	}
 	if !IsRunning(pidPath) {
 		t.Error("should be running with valid PID")
 	}
@@ -72,7 +74,9 @@ func TestRemovePID(t *testing.T) {
 	dir := t.TempDir()
 	pidPath := filepath.Join(dir, "daemon.pid")
 
-	WritePID(pidPath)
+	if err := WritePID(pidPath); err != nil {
+		t.Fatalf("WritePID: %v", err)
+	}
 	RemovePID(pidPath)
 
 	if _, err := os.Stat(pidPath); !os.IsNotExist(err) {
@@ -84,7 +88,9 @@ func TestWritePIDContent(t *testing.T) {
 	dir := t.TempDir()
 	pidPath := filepath.Join(dir, "daemon.pid")
 
-	WritePID(pidPath)
+	if err := WritePID(pidPath); err != nil {
+		t.Fatalf("WritePID: %v", err)
+	}
 
 	data, _ := os.ReadFile(pidPath)
 	pidStr := string(data)

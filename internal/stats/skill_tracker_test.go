@@ -12,13 +12,21 @@ import (
 func TestCheckSkillExecution_AJSkill(t *testing.T) {
 	dir := t.TempDir()
 	paths := config.PathsFromRoot(dir)
-	paths.EnsureDirs()
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
 
 	// Create a skill directory with metadata
 	skillDir := filepath.Join(paths.Skills, "deploy-staging")
-	os.MkdirAll(skillDir, 0755)
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: deploy-staging\n---\n"), 0644)
-	os.WriteFile(filepath.Join(skillDir, "metadata.json"), []byte(`{"version":1,"scope":"global","roi":{"savings_per_invocation":1300,"observed_frequency":5,"total_projected_savings":6500}}`), 0644)
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: deploy-staging\n---\n"), 0644); err != nil {
+		t.Fatalf("WriteFile SKILL.md: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "metadata.json"), []byte(`{"version":1,"scope":"global","roi":{"savings_per_invocation":1300,"observed_frequency":5,"total_projected_savings":6500}}`), 0644); err != nil {
+		t.Fatalf("WriteFile metadata.json: %v", err)
+	}
 
 	CheckSkillExecution("Skill", "post_tool_use", "test-session",
 		map[string]interface{}{"skill": "deploy-staging"}, paths)
@@ -35,7 +43,9 @@ func TestCheckSkillExecution_AJSkill(t *testing.T) {
 	}
 
 	var data SkillExecutionData
-	json.Unmarshal(records[0].Data, &data)
+	if err := json.Unmarshal(records[0].Data, &data); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
 	if data.SkillName != "deploy-staging" {
 		t.Errorf("expected skill name deploy-staging, got %s", data.SkillName)
 	}
@@ -50,11 +60,17 @@ func TestCheckSkillExecution_AJSkill(t *testing.T) {
 func TestCheckSkillExecution_Failure(t *testing.T) {
 	dir := t.TempDir()
 	paths := config.PathsFromRoot(dir)
-	paths.EnsureDirs()
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
 
 	skillDir := filepath.Join(paths.Skills, "deploy-staging")
-	os.MkdirAll(skillDir, 0755)
-	os.WriteFile(filepath.Join(skillDir, "metadata.json"), []byte(`{"roi":{"savings_per_invocation":500}}`), 0644)
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "metadata.json"), []byte(`{"roi":{"savings_per_invocation":500}}`), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	CheckSkillExecution("Skill", "post_tool_use_failure", "",
 		map[string]interface{}{"skill": "deploy-staging"}, paths)
@@ -65,7 +81,9 @@ func TestCheckSkillExecution_Failure(t *testing.T) {
 	}
 
 	var data SkillExecutionData
-	json.Unmarshal(records[0].Data, &data)
+	if err := json.Unmarshal(records[0].Data, &data); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
 	if data.Success {
 		t.Error("expected success=false for post_tool_use_failure")
 	}
@@ -74,7 +92,9 @@ func TestCheckSkillExecution_Failure(t *testing.T) {
 func TestCheckSkillExecution_NonAJSkill(t *testing.T) {
 	dir := t.TempDir()
 	paths := config.PathsFromRoot(dir)
-	paths.EnsureDirs()
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
 
 	// No skill directory created — this skill is not AJ-generated
 	CheckSkillExecution("Skill", "post_tool_use", "",
@@ -102,11 +122,15 @@ func TestCheckSkillExecution_NonSkillTool(t *testing.T) {
 func TestCheckSkillExecution_MissingMetadata(t *testing.T) {
 	dir := t.TempDir()
 	paths := config.PathsFromRoot(dir)
-	paths.EnsureDirs()
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
 
 	// Create skill directory without metadata.json
 	skillDir := filepath.Join(paths.Skills, "bare-skill")
-	os.MkdirAll(skillDir, 0755)
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 
 	CheckSkillExecution("Skill", "post_tool_use", "",
 		map[string]interface{}{"skill": "bare-skill"}, paths)
@@ -117,7 +141,9 @@ func TestCheckSkillExecution_MissingMetadata(t *testing.T) {
 	}
 
 	var data SkillExecutionData
-	json.Unmarshal(records[0].Data, &data)
+	if err := json.Unmarshal(records[0].Data, &data); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
 	if data.EstimatedTokensSaved != 0 {
 		t.Errorf("expected 0 tokens saved (no metadata), got %d", data.EstimatedTokensSaved)
 	}
