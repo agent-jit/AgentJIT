@@ -8,6 +8,7 @@ import (
 
 	"github.com/anthropics/agentjit/internal/config"
 	"github.com/anthropics/agentjit/internal/hooks"
+	"github.com/anthropics/agentjit/internal/skills"
 	"github.com/spf13/cobra"
 )
 
@@ -70,9 +71,30 @@ var initCmd = &cobra.Command{
 		}
 		fmt.Printf("   ✓ Hooks installed in %s\n", settingsPath)
 
-		// 4. Verify on PATH
+		// 4. Sync skill symlinks
 		fmt.Println()
-		fmt.Println("4. Verifying aj is on PATH")
+		fmt.Println("4. Syncing skills to Claude Code")
+		claudeSkillsDir, csErr := config.ClaudeSkillsGlobal()
+		if csErr == nil {
+			if err := skills.SyncLinks(paths.Skills, claudeSkillsDir); err != nil {
+				fmt.Printf("   ⚠ Could not sync skills: %v\n", err)
+			} else {
+				existing, _ := os.ReadDir(paths.Skills)
+				count := 0
+				for _, e := range existing {
+					if e.IsDir() {
+						count++
+					}
+				}
+				fmt.Printf("   ✓ %d skills linked to %s\n", count, claudeSkillsDir)
+			}
+		} else {
+			fmt.Printf("   ⚠ Could not determine Claude skills directory: %v\n", csErr)
+		}
+
+		// 5. Verify on PATH
+		fmt.Println()
+		fmt.Println("5. Verifying aj is on PATH")
 		if path, err := exec.LookPath("aj"); err == nil {
 			fmt.Printf("   ✓ Found at %s\n", path)
 		} else {

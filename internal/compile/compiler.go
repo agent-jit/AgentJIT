@@ -1,8 +1,10 @@
 package compile
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/anthropics/agentjit/internal/config"
 	"github.com/anthropics/agentjit/internal/skills"
+	"github.com/anthropics/agentjit/internal/stats"
 )
 
 // SessionSummary is a lightweight summary of a single session log file.
@@ -167,6 +170,30 @@ func BuildPrompt(promptTemplate string, cfg config.Config, globalSkillsDir strin
 	return prompt
 }
 
+// claudeOutput is the JSON envelope from `claude --print --output-format json`.
+type claudeOutput struct {
+	Result       string  `json:"result"`
+	TotalCostUSD float64 `json:"total_cost_usd"`
+	Usage        struct {
+		InputTokens              int `json:"input_tokens"`
+		OutputTokens             int `json:"output_tokens"`
+		CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+		CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+	} `json:"usage"`
+	NumTurns   int   `json:"num_turns"`
+	DurationMs int64 `json:"duration_ms"`
+	SessionID  string `json:"session_id"`
+}
+
+// parseClaudeOutput parses the JSON output from `claude --print --output-format json`.
+func parseClaudeOutput(data []byte) (claudeOutput, error) {
+	var out claudeOutput
+	if err := json.Unmarshal(data, &out); err != nil {
+		return out, fmt.Errorf("parsing claude output: %w", err)
+	}
+	return out, nil
+}
+
 // RunCompile executes the full compilation sequence.
 func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) error {
 	start := time.Now()
@@ -214,6 +241,13 @@ func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) er
 	fmt.Printf("[AJ] Attach from another terminal:\n")
 	fmt.Printf("  cd ~ && claude --resume %s\n", sessionID)
 
+	// Snapshot existing skills before compilation
+	skillsBefore, _ := skills.ScanSkillsDir(paths.Skills)
+	skillNamesBefore := make(map[string]bool, len(skillsBefore))
+	for _, s := range skillsBefore {
+		skillNamesBefore[s.Name] = true
+	}
+
 	userPrompt := fmt.Sprintf(
 		"Read your compiler instructions from %s. "+
 			"Then read the manifest at %s — it describes the available log files. "+
@@ -224,6 +258,7 @@ func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) er
 
 	cmd := exec.Command("claude",
 		"--print",
+		"--output-format", "json",
 		"--session-id", sessionID,
 		"--name", "aj-compile",
 		"--allowedTools", "Read,Write,Bash,Glob,Grep",
@@ -233,11 +268,64 @@ func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) er
 		"-p", userPrompt,
 	)
 	cmd.Dir = homeDir
-	cmd.Stdout = os.Stdout
+	var stdoutBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("running claude: %w", err)
+	}
+
+	// Parse token usage from JSON output
+	output, parseErr := parseClaudeOutput(stdoutBuf.Bytes())
+	if parseErr != nil {
+		log.Printf("[AJ] Could not parse token metrics (upgrade Claude Code for token tracking): %v", parseErr)
+	} else {
+		// Print the result text
+		if output.Result != "" {
+			fmt.Println(output.Result)
+		}
+		fmt.Printf("[AJ] Compilation tokens: %d in / %d out ($%.2f)\n",
+			output.Usage.InputTokens, output.Usage.OutputTokens, output.TotalCostUSD)
+	}
+
+	// Count skills created/updated
+	skillsAfter, _ := skills.ScanSkillsDir(paths.Skills)
+	var skillsCreated, skillsUpdated int
+	for _, s := range skillsAfter {
+		if skillNamesBefore[s.Name] {
+			skillsUpdated++
+		} else {
+			skillsCreated++
+		}
+	}
+
+	// Record compile stats
+	if parseErr == nil {
+		if err := stats.AppendCompileSession(paths.Stats, stats.CompileSessionData{
+			SessionID:           sessionID,
+			InputTokens:         output.Usage.InputTokens,
+			OutputTokens:        output.Usage.OutputTokens,
+			CacheCreationTokens: output.Usage.CacheCreationInputTokens,
+			CacheReadTokens:     output.Usage.CacheReadInputTokens,
+			TotalCostUSD:        output.TotalCostUSD,
+			DurationMs:          output.DurationMs,
+			NumTurns:            output.NumTurns,
+			SkillsCreated:       skillsCreated,
+			SkillsUpdated:       skillsUpdated,
+			SessionsProcessed:   manifest.TotalSessions,
+			EventsProcessed:     manifest.TotalEvents,
+		}); err != nil {
+			log.Printf("[AJ] Failed to record compile stats: %v", err)
+		}
+	}
+
+	// Sync skill symlinks to Claude Code skills directory
+	claudeSkillsDir, err := config.ClaudeSkillsGlobal()
+	if err == nil {
+		if err := skills.SyncLinks(paths.Skills, claudeSkillsDir); err != nil {
+			log.Printf("[AJ] Failed to sync skill links: %v", err)
+		}
 	}
 
 	// 6. Update marker

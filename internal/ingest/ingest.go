@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/anthropics/agentjit/internal/config"
+	"github.com/anthropics/agentjit/internal/stats"
 	"github.com/anthropics/agentjit/internal/transport"
 )
 
@@ -33,7 +34,13 @@ func IngestFromReader(r io.Reader, paths config.Paths, cfg config.Config) error 
 
 	// Fallback: write directly to JSONL file
 	writer := NewWriter(paths)
-	return writer.Write(event)
+	if err := writer.Write(event); err != nil {
+		return err
+	}
+
+	// Track AJ skill executions for stats
+	stats.CheckSkillExecution(event.ToolName, event.EventType, event.SessionID, event.ToolInput, paths)
+	return nil
 }
 
 // forwardToDaemon sends the raw payload to the daemon via IPC.

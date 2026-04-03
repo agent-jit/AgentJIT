@@ -16,6 +16,7 @@ type Paths struct {
 	CompileLog   string // ~/.aj/compile-log.jsonl
 	CompileMarker string // ~/.aj/last_compile_marker
 	BootstrapProcessed string // ~/.aj/bootstrap_processed.json
+	Stats          string // ~/.aj/stats.jsonl
 }
 
 // DefaultPaths returns Paths rooted at ~/.aj.
@@ -41,6 +42,7 @@ func PathsFromRoot(root string) Paths {
 		CompileLog:         filepath.Join(root, "compile-log.jsonl"),
 		CompileMarker:      filepath.Join(root, "last_compile_marker"),
 		BootstrapProcessed: filepath.Join(root, "bootstrap_processed.json"),
+		Stats:              filepath.Join(root, "stats.jsonl"),
 	}
 }
 
@@ -62,6 +64,15 @@ func (p Paths) SessionLogDir(date string) string {
 // SessionLogFile returns the JSONL file path for a given date and session ID.
 func (p Paths) SessionLogFile(date, sessionID string) string {
 	return filepath.Join(p.Logs, date, sessionID+".jsonl")
+}
+
+// ClaudeSkillsGlobal returns the path to Claude Code's global skills directory.
+func ClaudeSkillsGlobal() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".claude", "skills"), nil
 }
 
 // ClaudeSettingsGlobal returns the path to Claude Code's global settings.

@@ -58,6 +58,12 @@ var skillsRemoveCmd = &cobra.Command{
 			return err
 		}
 
+		// Also remove symlink from Claude Code skills directory
+		claudeSkillsDir, csErr := config.ClaudeSkillsGlobal()
+		if csErr == nil {
+			skills.UnlinkSkill(claudeSkillsDir, args[0])
+		}
+
 		fmt.Printf("[AJ] Removed skill: %s\n", args[0])
 		return nil
 	},

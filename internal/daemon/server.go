@@ -14,6 +14,8 @@ import (
 
 	"github.com/anthropics/agentjit/internal/config"
 	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/anthropics/agentjit/internal/skills"
+	"github.com/anthropics/agentjit/internal/stats"
 	"github.com/anthropics/agentjit/internal/transport"
 )
 
@@ -80,6 +82,14 @@ func (s *Server) Start() error {
 
 		log.Printf("[AJ] Compiled skill: '%s'. Estimated savings: %s tokens/invocation.\n",
 			skillName, savings)
+
+		// Symlink new skill into Claude Code skills directory
+		claudeSkillsDir, csErr := config.ClaudeSkillsGlobal()
+		if csErr == nil {
+			if linkErr := skills.LinkSkill(s.paths.Skills, claudeSkillsDir, skillName); linkErr != nil {
+				log.Printf("[AJ] Could not link skill %s: %v", skillName, linkErr)
+			}
+		}
 	})
 	if err != nil {
 		log.Printf("[AJ] Could not start skill watcher: %v", err)
@@ -209,6 +219,9 @@ func (s *Server) handleConn(conn net.Conn) {
 			log.Printf("[AJ] write error: %v", err)
 			continue
 		}
+
+		// Track AJ skill executions for stats
+		stats.CheckSkillExecution(event.ToolName, event.EventType, event.SessionID, event.ToolInput, s.paths)
 
 		s.eventCount.Add(1)
 		s.lastEvent.Store(time.Now().Unix())
