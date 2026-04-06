@@ -172,6 +172,20 @@ bash ${CLAUDE_SKILL_DIR}/scripts/<skill-name>.sh ${ARGUMENTS:-<default>}
 - Includes the actual commands from the observed pattern
 - Handles errors with exit code 2 for auth/permission failures (triggers self-healing — Claude Code will receive the stderr and attempt to resolve)
 - Exits 1 for other errors
+- **Tracks execution via `aj stats record`** — records success/failure so stats work even when the script is called directly via Bash instead of the Skill tool
+
+Use this template structure for companion scripts:
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+SKILL_NAME="<skill-name>"
+trap 'aj stats record --skill "$SKILL_NAME" --success=false 2>/dev/null' ERR
+
+# ... actual commands here ...
+
+aj stats record --skill "$SKILL_NAME"
+```
 
 ### Step 8: Write Compile Log Entry
 After generating all skills, output a JSON summary on a single line starting with `COMPILE_LOG:`:

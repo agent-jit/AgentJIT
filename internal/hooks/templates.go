@@ -33,7 +33,7 @@ func AJHooks() map[string][]MatcherGroup {
 		"SessionStart": {
 			{
 				Hooks: []HookHandler{
-					{Type: "command", Command: "aj daemon start --if-not-running && aj ingest"},
+					{Type: "command", Command: "aj daemon start --if-not-running"},
 				},
 			},
 		},
