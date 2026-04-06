@@ -27,10 +27,16 @@ func StartDaemonProcess() error {
 		return fmt.Errorf("finding executable: %w", err)
 	}
 
+	devNull, err := os.Open(os.DevNull)
+	if err != nil {
+		return fmt.Errorf("opening /dev/null: %w", err)
+	}
+	defer devNull.Close()
+
 	attr := &os.ProcAttr{
 		Dir:   "/",
 		Env:   os.Environ(),
-		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+		Files: []*os.File{devNull, devNull, devNull},
 	}
 
 	proc, err := os.StartProcess(exe, []string{exe, "daemon", "start", "--foreground"}, attr)

@@ -35,6 +35,9 @@ func StartDaemonProcess() error {
 	}
 
 	cmd := exec.Command(exe, "daemon", "start", "--foreground")
+	cmd.Stdin = nil
+	cmd.Stdout = nil
+	cmd.Stderr = nil
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP | 0x00000008, // DETACHED_PROCESS
 	}
