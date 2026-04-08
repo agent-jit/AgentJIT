@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"os"
+	"runtime"
 )
 
 type DaemonConfig struct {
@@ -23,6 +24,15 @@ type CompileConfig struct {
 	MinPatternFrequency    int   `json:"min_pattern_frequency"`
 	MinTokenSavings        int   `json:"min_token_savings"`
 	DeprecateAfterSessions int   `json:"deprecate_after_sessions"`
+	Platform               string `json:"platform,omitempty"` // "windows", "linux", "darwin" — auto-detected if empty
+}
+
+// ResolvePlatform returns the configured platform, or runtime.GOOS if not set.
+func (c CompileConfig) ResolvePlatform() string {
+	if c.Platform != "" {
+		return c.Platform
+	}
+	return runtime.GOOS
 }
 
 type ScopeConfig struct {

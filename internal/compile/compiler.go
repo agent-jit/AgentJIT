@@ -157,12 +157,20 @@ func summarizeSession(filePath, date string) SessionSummary {
 func BuildPrompt(promptTemplate string, cfg config.Config, globalSkillsDir string) string {
 	prompt := promptTemplate
 
+	platform := cfg.Compile.ResolvePlatform()
+	shell := "bash"
+	if platform == "windows" {
+		shell = "powershell"
+	}
+
 	replacements := map[string]string{
 		"{{MIN_PATTERN_FREQUENCY}}":    strconv.Itoa(cfg.Compile.MinPatternFrequency),
 		"{{MIN_TOKEN_SAVINGS}}":        strconv.Itoa(cfg.Compile.MinTokenSavings),
 		"{{DEPRECATE_AFTER_SESSIONS}}": strconv.Itoa(cfg.Compile.DeprecateAfterSessions),
 		"{{GLOBAL_SKILLS_DIR}}":        globalSkillsDir,
 		"{{GLOBAL_CLI_TOOLS}}":         strings.Join(cfg.Scope.GlobalCLITools, ", "),
+		"{{PLATFORM}}":                 platform,
+		"{{SHELL}}":                    shell,
 	}
 
 	for key, val := range replacements {
@@ -253,6 +261,7 @@ func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) er
 	userPrompt := fmt.Sprintf(
 		"Read your compiler instructions from %s. "+
 			"Then read the manifest at %s — it describes the available log files. "+
+			"IMPORTANT: Only search session files listed in the manifest — other log files have already been compiled. "+
 			"Use Glob, Grep, and Read to explore the JSONL log files as needed for pattern detection. "+
 			"Do NOT try to read all logs at once — sample strategically. "+
 			"Write generated skills to %s.",
@@ -265,7 +274,8 @@ func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) er
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt)
 
-	cmd := exec.CommandContext(ctx, "claude",
+	// Build --add-dir args: root, skills, and only the date dirs in the manifest
+	cmdArgs := []string{
 		"--print",
 		"--output-format", "json",
 		"--session-id", sessionID,
@@ -273,9 +283,18 @@ func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) er
 		"--allowedTools", "Read,Write,Bash,Glob,Grep",
 		"--add-dir", paths.Root,
 		"--add-dir", paths.Skills,
-		"--add-dir", paths.Logs,
-		"-p", userPrompt,
-	)
+	}
+	// Add only the date directories referenced by the manifest instead of all logs
+	manifestDates := make(map[string]bool)
+	for _, s := range manifest.Sessions {
+		manifestDates[s.Date] = true
+	}
+	for date := range manifestDates {
+		cmdArgs = append(cmdArgs, "--add-dir", filepath.Join(paths.Logs, date))
+	}
+	cmdArgs = append(cmdArgs, "-p", userPrompt)
+
+	cmd := exec.CommandContext(ctx, "claude", cmdArgs...)
 	cmd.Dir = homeDir
 	setProcGroup(cmd)
 	var stdoutBuf bytes.Buffer

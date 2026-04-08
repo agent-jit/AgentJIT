@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -86,5 +87,28 @@ func TestLoadPartialJSON(t *testing.T) {
 	// completely untouched.
 	if cfg.Daemon.IdleTimeoutMinutes != 30 {
 		t.Errorf("IdleTimeoutMinutes = %d, want 30 (default preserved)", cfg.Daemon.IdleTimeoutMinutes)
+	}
+}
+
+func TestResolvePlatform_DefaultUsesRuntime(t *testing.T) {
+	cfg := DefaultConfig()
+	got := cfg.Compile.ResolvePlatform()
+	if got != runtime.GOOS {
+		t.Errorf("ResolvePlatform() = %q, want %q", got, runtime.GOOS)
+	}
+}
+
+func TestResolvePlatform_ExplicitOverride(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Compile.Platform = "windows"
+	got := cfg.Compile.ResolvePlatform()
+	if got != "windows" {
+		t.Errorf("ResolvePlatform() = %q, want %q", got, "windows")
+	}
+
+	cfg.Compile.Platform = "linux"
+	got = cfg.Compile.ResolvePlatform()
+	if got != "linux" {
+		t.Errorf("ResolvePlatform() = %q, want %q", got, "linux")
 	}
 }

@@ -108,7 +108,7 @@ func isAJManaged(dir string) bool {
 	return len(data) > 0 && strings.Contains(string(data), `"generated_by"`) && strings.Contains(string(data), `"aj"`)
 }
 
-// copySkillDir copies a skill directory (SKILL.md, metadata.json, scripts).
+// copySkillDir recursively copies a skill directory (SKILL.md, metadata.json, scripts/).
 func copySkillDir(src, dst string) error {
 	if err := os.MkdirAll(dst, 0755); err != nil {
 		return err
@@ -120,13 +120,17 @@ func copySkillDir(src, dst string) error {
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir() {
-			continue // Don't recurse into subdirs
-		}
-		srcFile := filepath.Join(src, entry.Name())
-		dstFile := filepath.Join(dst, entry.Name())
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
 
-		data, err := os.ReadFile(srcFile)
+		if entry.IsDir() {
+			if err := copySkillDir(srcPath, dstPath); err != nil {
+				return err
+			}
+			continue
+		}
+
+		data, err := os.ReadFile(srcPath)
 		if err != nil {
 			continue
 		}
@@ -136,7 +140,7 @@ func copySkillDir(src, dst string) error {
 		if info != nil {
 			perm = info.Mode().Perm()
 		}
-		if err := os.WriteFile(dstFile, data, perm); err != nil {
+		if err := os.WriteFile(dstPath, data, perm); err != nil {
 			return err
 		}
 	}
