@@ -1,12 +1,11 @@
-```
-                                    __       _ _ __
-   ____ _____ ____  ____  ____ _  / /      / (_) /_
-  / __ `/ __ `/ _ \/ __ \/ __ `/ / / ___  / / / __/
- / /_/ / /_/ /  __/ / / / /_/ / / / / _ \/ / / /_
- \__,_/\__, /\___/_/ /_/\__/ /_/ /_/\___/_/_/\__/
-      /____/         /___/  /_/
+```                                         
+   _____             _      __ _____ _____ 
+  |  _  |___ ___ ___| |_ __|  |     |_   _|
+  |     | . | -_|   |  _|  |  |-   -| | |  
+  |__|__|_  |___|_|_|_| |_____|_____| |_|  
+        |___|                              
 
-      the daemon that compiles your workflows into existence
+the daemon that compiles your workflows into existence
 ```
 
 > *"We are what we repeatedly do. Excellence, then, is not an act, but a habit."*
