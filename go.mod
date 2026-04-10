@@ -1,4 +1,4 @@
-module github.com/anthropics/agentjit
+module github.com/agent-jit/agentjit
 
 go 1.22.5
 

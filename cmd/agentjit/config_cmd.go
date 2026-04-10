@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 	"github.com/spf13/cobra"
 )
 

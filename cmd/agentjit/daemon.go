@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/daemon"
-	"github.com/anthropics/agentjit/internal/transport"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/daemon"
+	"github.com/agent-jit/agentjit/internal/transport"
 	"github.com/spf13/cobra"
 )
 

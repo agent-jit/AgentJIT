@@ -3,8 +3,8 @@ package skills
 import (
 	"testing"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
 )
 
 func TestInferScopeMultipleProjects(t *testing.T) {

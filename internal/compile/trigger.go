@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 // Trigger evaluates whether the compilation should fire.

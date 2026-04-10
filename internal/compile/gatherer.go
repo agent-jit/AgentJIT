@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
 )
 
 // WriteMarker writes a timestamp to the compile marker file.

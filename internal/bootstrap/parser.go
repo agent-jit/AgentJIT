@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/ingest"
 )
 
 // transcriptLine represents a single line in a Claude Code transcript JSONL.

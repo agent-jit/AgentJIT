@@ -326,7 +326,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 func TestWriteEvent(t *testing.T) {
@@ -469,7 +469,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 // Writer appends normalized events to date/session-partitioned JSONL files.
@@ -569,7 +569,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 func TestIngestFromStdin(t *testing.T) {
@@ -647,7 +647,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 // IngestFromReader reads a single JSON hook payload from r, normalizes it,
@@ -706,8 +706,8 @@ package main
 import (
 	"os"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
 	"github.com/spf13/cobra"
 )
 
@@ -1188,8 +1188,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/hooks"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/hooks"
 	"github.com/spf13/cobra"
 )
 

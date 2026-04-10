@@ -120,7 +120,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/ingest"
 )
 
 // transcriptLine represents a single line in a Claude Code transcript JSONL.
@@ -294,7 +294,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 func createFakeTranscript(t *testing.T, dir, sessionID string) string {
@@ -426,8 +426,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
 )
 
 // ProcessedFiles tracks which transcript files have been bootstrapped.
@@ -607,8 +607,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/anthropics/agentjit/internal/bootstrap"
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/bootstrap"
+	"github.com/agent-jit/agentjit/internal/config"
 	"github.com/spf13/cobra"
 )
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/anthropics/agentjit/internal/version"
+	"github.com/agent-jit/agentjit/internal/version"
 	"github.com/spf13/cobra"
 )
 

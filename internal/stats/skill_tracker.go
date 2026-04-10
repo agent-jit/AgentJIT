@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 // CheckSkillExecution examines tool event fields and, if they represent

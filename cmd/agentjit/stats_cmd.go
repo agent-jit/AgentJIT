@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/stats"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/stats"
 	"github.com/spf13/cobra"
 )
 

@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/skills"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/skills"
 	"github.com/spf13/cobra"
 )
 

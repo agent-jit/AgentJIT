@@ -6,9 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/hooks"
-	"github.com/anthropics/agentjit/internal/skills"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/hooks"
+	"github.com/agent-jit/agentjit/internal/skills"
 	"github.com/spf13/cobra"
 )
 

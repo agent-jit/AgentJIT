@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
 	"github.com/spf13/cobra"
 )
 

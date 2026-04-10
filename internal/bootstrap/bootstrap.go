@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
 )
 
 // ProcessedFiles tracks which transcript files have been bootstrapped.

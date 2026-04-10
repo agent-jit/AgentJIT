@@ -32,8 +32,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
 )
 
 func writeTestEvent(t *testing.T, dir, sessionID string, ts time.Time) {
@@ -166,8 +166,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
 )
 
 // WriteMarker writes a timestamp to the dream marker file.
@@ -646,9 +646,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
-	"github.com/anthropics/agentjit/internal/skills"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/skills"
 )
 
 func TestBuildContext(t *testing.T) {
@@ -729,9 +729,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
-	"github.com/anthropics/agentjit/internal/skills"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/skills"
 )
 
 // BuildContext creates the context payload string for the compiler.
@@ -890,8 +890,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/dream"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/dream"
 	"github.com/spf13/cobra"
 )
 

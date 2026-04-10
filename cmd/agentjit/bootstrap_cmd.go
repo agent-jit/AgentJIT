@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/anthropics/agentjit/internal/bootstrap"
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/bootstrap"
+	"github.com/agent-jit/agentjit/internal/config"
 	"github.com/spf13/cobra"
 )
 

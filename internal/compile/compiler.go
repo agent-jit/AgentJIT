@@ -17,9 +17,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/skills"
-	"github.com/anthropics/agentjit/internal/stats"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/skills"
+	"github.com/agent-jit/agentjit/internal/stats"
 )
 
 // SessionSummary is a lightweight summary of a single session log file.

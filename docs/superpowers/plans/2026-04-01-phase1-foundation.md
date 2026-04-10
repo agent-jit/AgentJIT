@@ -24,7 +24,7 @@
 Run:
 ```bash
 cd /Users/pc/web3/agentjit
-go mod init github.com/anthropics/agentjit
+go mod init github.com/agent-jit/agentjit
 ```
 Expected: `go.mod` created with module path
 
@@ -1021,7 +1021,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 	"github.com/spf13/cobra"
 )
 

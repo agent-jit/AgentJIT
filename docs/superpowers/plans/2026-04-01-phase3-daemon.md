@@ -252,7 +252,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 func TestServerStartAndAcceptEvent(t *testing.T) {
@@ -354,8 +354,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
 )
 
 // Server is the daemon's Unix socket server that receives and writes events.
@@ -507,7 +507,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 func TestManualTrigger(t *testing.T) {
@@ -594,7 +594,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 // Trigger evaluates whether the compilation should fire.
@@ -691,7 +691,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 func TestIdleTimeoutShutdown(t *testing.T) {
@@ -847,8 +847,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/daemon"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/daemon"
 	"github.com/spf13/cobra"
 )
 
@@ -1019,7 +1019,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/anthropics/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/config"
 )
 
 func TestCleanupOldLogs(t *testing.T) {

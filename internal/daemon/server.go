@@ -12,11 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/internal/ingest"
-	"github.com/anthropics/agentjit/internal/skills"
-	"github.com/anthropics/agentjit/internal/stats"
-	"github.com/anthropics/agentjit/internal/transport"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
+	"github.com/agent-jit/agentjit/internal/skills"
+	"github.com/agent-jit/agentjit/internal/stats"
+	"github.com/agent-jit/agentjit/internal/transport"
 )
 
 // Server is the daemon's Unix socket server that receives and writes events.

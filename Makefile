@@ -1,4 +1,4 @@
-MODULE   := github.com/anthropics/agentjit
+MODULE   := github.com/agent-jit/agentjit
 BIN      := aj
 CMD      := ./cmd/agentjit
 VERSION  := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)

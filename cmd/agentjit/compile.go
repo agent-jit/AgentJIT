@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/anthropics/agentjit/internal/compile"
-	"github.com/anthropics/agentjit/internal/config"
-	"github.com/anthropics/agentjit/prompts"
+	"github.com/agent-jit/agentjit/internal/compile"
+	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/prompts"
 	"github.com/spf13/cobra"
 )
 
