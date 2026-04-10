@@ -166,14 +166,25 @@ func Aggregate(records []Record) Aggregated {
 	return agg
 }
 
+// NextCompileInfo describes progress toward the next auto-compile.
+type NextCompileInfo struct {
+	TriggerMode        string     `json:"trigger_mode"`
+	LastCompileTime    *time.Time `json:"last_compile_time,omitempty"`
+	IntervalMinutes    int        `json:"interval_minutes,omitempty"`
+	MinutesRemaining   *int       `json:"minutes_remaining,omitempty"`
+	EventThreshold     int        `json:"event_threshold,omitempty"`
+	EventsSinceCompile int        `json:"events_since_compile,omitempty"`
+	EventsRemaining    *int       `json:"events_remaining,omitempty"`
+}
+
 // PrintStats reads the stats file and prints a formatted dashboard.
-func PrintStats(statsPath string, asJSON bool) error {
+func PrintStats(statsPath string, nextInfo *NextCompileInfo, asJSON bool) error {
 	records, err := ReadAllRecords(statsPath)
 	if err != nil {
 		return err
 	}
 
-	if len(records) == 0 {
+	if len(records) == 0 && nextInfo == nil {
 		fmt.Println("[AJ] No stats recorded yet. Stats are collected during 'aj compile' and skill executions.")
 		return nil
 	}
@@ -181,7 +192,11 @@ func PrintStats(statsPath string, asJSON bool) error {
 	agg := Aggregate(records)
 
 	if asJSON {
-		data, err := json.MarshalIndent(agg, "", "  ")
+		combined := struct {
+			Aggregated
+			NextCompile *NextCompileInfo `json:"next_compile,omitempty"`
+		}{Aggregated: agg, NextCompile: nextInfo}
+		data, err := json.MarshalIndent(combined, "", "  ")
 		if err != nil {
 			return err
 		}
@@ -225,6 +240,41 @@ func PrintStats(statsPath string, asJSON bool) error {
 	fmt.Printf("  Tokens spent:      %d\n", totalSpent)
 	fmt.Printf("  Net savings:       %d\n", netSavings)
 	fmt.Printf("  ROI:               %.2fx\n", roi)
+
+	if nextInfo != nil {
+		fmt.Println()
+		fmt.Println("Next Compile")
+		switch nextInfo.TriggerMode {
+		case "manual":
+			fmt.Println("  Trigger mode:      manual (run 'aj compile' to trigger)")
+		case "interval":
+			fmt.Printf("  Trigger mode:      interval\n")
+			if nextInfo.LastCompileTime != nil {
+				fmt.Printf("  Last compile:      %s\n", nextInfo.LastCompileTime.Format("2006-01-02 15:04:05 UTC"))
+			} else {
+				fmt.Printf("  Last compile:      never\n")
+			}
+			fmt.Printf("  Interval:          %dm\n", nextInfo.IntervalMinutes)
+			if nextInfo.MinutesRemaining != nil {
+				if *nextInfo.MinutesRemaining == 0 {
+					fmt.Printf("  Status:            ready (waiting for next check)\n")
+				} else {
+					fmt.Printf("  Time remaining:    %dm\n", *nextInfo.MinutesRemaining)
+				}
+			}
+		case "event_count":
+			fmt.Printf("  Trigger mode:      event_count\n")
+			fmt.Printf("  Events threshold:  %d\n", nextInfo.EventThreshold)
+			fmt.Printf("  Events received:   %d\n", nextInfo.EventsSinceCompile)
+			if nextInfo.EventsRemaining != nil {
+				if *nextInfo.EventsRemaining == 0 {
+					fmt.Printf("  Status:            ready (waiting for next check)\n")
+				} else {
+					fmt.Printf("  Events remaining:  %d\n", *nextInfo.EventsRemaining)
+				}
+			}
+		}
+	}
 
 	return nil
 }

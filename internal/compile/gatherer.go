@@ -31,6 +31,87 @@ func ReadMarker(path string) (time.Time, error) {
 	return time.Parse(time.RFC3339, string(data))
 }
 
+// CountEventsSinceMarker counts events in log files newer than the compile
+// marker without loading them into memory. Returns the count and marker time.
+func CountEventsSinceMarker(paths config.Paths) (int, time.Time, error) {
+	marker, _ := ReadMarker(paths.CompileMarker)
+
+	dateDirs, err := os.ReadDir(paths.Logs)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, marker, nil
+		}
+		return 0, marker, fmt.Errorf("reading logs dir: %w", err)
+	}
+
+	count := 0
+	for _, dateDir := range dateDirs {
+		if !dateDir.IsDir() {
+			continue
+		}
+
+		if !marker.IsZero() {
+			dirDate, err := time.Parse("2006-01-02", dateDir.Name())
+			if err != nil {
+				continue
+			}
+			if dirDate.Before(marker.Truncate(24 * time.Hour)) {
+				continue
+			}
+		}
+
+		dirPath := filepath.Join(paths.Logs, dateDir.Name())
+		sessionFiles, err := os.ReadDir(dirPath)
+		if err != nil {
+			continue
+		}
+
+		for _, sf := range sessionFiles {
+			if filepath.Ext(sf.Name()) != ".jsonl" {
+				continue
+			}
+			n, err := countEventsInFile(filepath.Join(dirPath, sf.Name()), marker)
+			if err != nil {
+				continue
+			}
+			count += n
+		}
+	}
+
+	return count, marker, nil
+}
+
+func countEventsInFile(path string, after time.Time) (int, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	count := 0
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		if after.IsZero() {
+			count++
+			continue
+		}
+		var event struct {
+			Timestamp time.Time `json:"timestamp"`
+		}
+		if json.Unmarshal(line, &event) == nil && event.Timestamp.After(after) {
+			count++
+		}
+	}
+
+	return count, scanner.Err()
+}
+
 // GatherUnprocessedLogs reads all JSONL events from log files newer than
 // the last compile marker. Returns events sorted by timestamp, capped at maxLines.
 func GatherUnprocessedLogs(paths config.Paths, maxLines int) ([]ingest.Event, error) {

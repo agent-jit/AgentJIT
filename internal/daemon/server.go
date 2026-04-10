@@ -12,11 +12,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/agent-jit/agentjit/internal/compile"
 	"github.com/agent-jit/agentjit/internal/config"
 	"github.com/agent-jit/agentjit/internal/ingest"
 	"github.com/agent-jit/agentjit/internal/skills"
 	"github.com/agent-jit/agentjit/internal/stats"
 	"github.com/agent-jit/agentjit/internal/transport"
+	"github.com/agent-jit/agentjit/prompts"
 )
 
 // Server is the daemon's Unix socket server that receives and writes events.
@@ -25,11 +27,13 @@ type Server struct {
 	paths       config.Paths
 	cfg         config.Config
 	listener    net.Listener
-	writer      *ingest.Writer
-	eventCount  atomic.Int64
-	lastEvent   atomic.Int64 // unix timestamp of last event
-	stopCh      chan struct{}
-	skillWatcher *Watcher
+	writer            *ingest.Writer
+	eventCount        atomic.Int64
+	compileEventCount atomic.Int64 // events since last compile (reset after auto-compile)
+	lastEvent         atomic.Int64 // unix timestamp of last event
+	stopCh            chan struct{}
+	trigger           *compile.Trigger
+	skillWatcher      *Watcher
 	stopOnce     sync.Once
 	wg           sync.WaitGroup
 	idleTimeout  time.Duration
@@ -142,6 +146,36 @@ func (s *Server) Start() error {
 		}
 	}()
 
+	// Auto-compile trigger checker
+	if s.cfg.Compile.TriggerMode != "manual" {
+		s.trigger = compile.NewTrigger(s.cfg)
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-s.stopCh:
+					return
+				case <-ticker.C:
+					events := s.compileEventCount.Load()
+					if !s.trigger.ShouldFire(events, time.Now()) {
+						continue
+					}
+					s.trigger.SetRunning(true)
+					log.Printf("[AJ] Auto-compile triggered (mode: %s, events: %d)", s.cfg.Compile.TriggerMode, events)
+					if err := compile.RunCompile(s.paths, s.cfg, prompts.Compiler); err != nil {
+						log.Printf("[AJ] Auto-compile failed: %v", err)
+					} else {
+						log.Println("[AJ] Auto-compile completed successfully")
+						s.trigger.MarkFired()
+						s.compileEventCount.Add(-events)
+					}
+					s.trigger.SetRunning(false)
+				}
+			}
+		}()
+	}
+
 	<-s.stopCh
 	return nil
 }
@@ -192,7 +226,12 @@ func (s *Server) effectiveIdleTimeout() time.Duration {
 
 // EventsSinceCompile returns the number of events since the counter was last reset.
 func (s *Server) EventsSinceCompile() int64 {
-	return s.eventCount.Load()
+	return s.compileEventCount.Load()
+}
+
+// ResetCompileCounter resets the events-since-compile counter to zero.
+func (s *Server) ResetCompileCounter() {
+	s.compileEventCount.Store(0)
 }
 
 func (s *Server) handleConn(conn net.Conn) {
@@ -224,6 +263,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		stats.CheckSkillExecution(event.ToolName, event.EventType, event.SessionID, event.ToolInput, s.paths)
 
 		s.eventCount.Add(1)
+		s.compileEventCount.Add(1)
 		s.lastEvent.Store(time.Now().Unix())
 	}
 }

@@ -118,3 +118,53 @@ func TestWriteAndReadMarker(t *testing.T) {
 		t.Errorf("ReadMarker = %v, want %v", read, ts)
 	}
 }
+
+func TestCountEventsSinceMarker(t *testing.T) {
+	root := t.TempDir()
+	paths := config.PathsFromRoot(root)
+	_ = paths.EnsureDirs()
+
+	t1 := time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC)
+	t3 := time.Date(2026, 4, 1, 11, 0, 0, 0, time.UTC)
+	writeTestEvent(t, paths.Logs, "old_session", t1)
+	writeTestEvent(t, paths.Logs, "new_session", t2)
+	writeTestEvent(t, paths.Logs, "new_session", t3)
+
+	// Marker after t1 but before t2
+	marker := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	_ = WriteMarker(paths.CompileMarker, marker)
+
+	count, markerTime, err := CountEventsSinceMarker(paths)
+	if err != nil {
+		t.Fatalf("CountEventsSinceMarker: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("count = %d, want 2", count)
+	}
+	if !markerTime.Equal(marker) {
+		t.Errorf("markerTime = %v, want %v", markerTime, marker)
+	}
+}
+
+func TestCountEventsSinceMarkerNoMarker(t *testing.T) {
+	root := t.TempDir()
+	paths := config.PathsFromRoot(root)
+	_ = paths.EnsureDirs()
+
+	t1 := time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC)
+	writeTestEvent(t, paths.Logs, "session_a", t1)
+	writeTestEvent(t, paths.Logs, "session_b", t2)
+
+	count, markerTime, err := CountEventsSinceMarker(paths)
+	if err != nil {
+		t.Fatalf("CountEventsSinceMarker: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("count = %d, want 2", count)
+	}
+	if !markerTime.IsZero() {
+		t.Errorf("markerTime = %v, want zero", markerTime)
+	}
+}

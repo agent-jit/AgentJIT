@@ -3,8 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
+	"time"
 
+	"github.com/agent-jit/agentjit/internal/compile"
 	"github.com/agent-jit/agentjit/internal/config"
 	"github.com/agent-jit/agentjit/internal/stats"
 	"github.com/spf13/cobra"
@@ -20,7 +23,12 @@ var statsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return stats.PrintStats(paths.Stats, statsJSON)
+		cfg, err := config.Load(paths.Config)
+		if err != nil {
+			cfg = config.DefaultConfig()
+		}
+		nextInfo := getNextCompileInfo(paths, cfg)
+		return stats.PrintStats(paths.Stats, nextInfo, statsJSON)
 	},
 }
 
@@ -92,4 +100,47 @@ func init() {
 	statsRecordCmd.Flags().StringVar(&recordSession, "session", "", "Claude session ID")
 	statsCmd.AddCommand(statsResetCmd, statsRecordCmd)
 	rootCmd.AddCommand(statsCmd)
+}
+
+func getNextCompileInfo(paths config.Paths, cfg config.Config) *stats.NextCompileInfo {
+	info := &stats.NextCompileInfo{
+		TriggerMode: cfg.Compile.TriggerMode,
+	}
+
+	if cfg.Compile.TriggerMode == "manual" {
+		return info
+	}
+
+	eventCount, markerTime, err := compile.CountEventsSinceMarker(paths)
+	if err != nil {
+		return info
+	}
+
+	if !markerTime.IsZero() {
+		info.LastCompileTime = &markerTime
+	}
+
+	switch cfg.Compile.TriggerMode {
+	case "interval":
+		info.IntervalMinutes = cfg.Compile.TriggerIntervalMinutes
+		if !markerTime.IsZero() {
+			elapsed := time.Since(markerTime)
+			remaining := time.Duration(cfg.Compile.TriggerIntervalMinutes)*time.Minute - elapsed
+			mins := int(math.Ceil(remaining.Minutes()))
+			if mins < 0 {
+				mins = 0
+			}
+			info.MinutesRemaining = &mins
+		}
+	case "event_count":
+		info.EventThreshold = cfg.Compile.TriggerEventThreshold
+		info.EventsSinceCompile = eventCount
+		remaining := cfg.Compile.TriggerEventThreshold - eventCount
+		if remaining < 0 {
+			remaining = 0
+		}
+		info.EventsRemaining = &remaining
+	}
+
+	return info
 }
