@@ -14,17 +14,23 @@ import (
 func TestBuildManifest(t *testing.T) {
 	dir := t.TempDir()
 	paths := config.PathsFromRoot(dir)
-	paths.EnsureDirs()
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
 
 	// Create a session log file
 	dateDir := filepath.Join(paths.Logs, "2026-04-01")
-	os.MkdirAll(dateDir, 0755)
+	if err := os.MkdirAll(dateDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 
 	events := []string{
 		`{"timestamp":"2026-04-01T10:00:00Z","session_id":"s1","event_type":"post_tool_use","tool_name":"Bash","tool_input":{"command":"ls"},"working_directory":"/dev"}`,
 		`{"timestamp":"2026-04-01T10:01:00Z","session_id":"s1","event_type":"post_tool_use","tool_name":"Read","tool_input":{"file_path":"/dev/main.go"},"working_directory":"/dev"}`,
 	}
-	os.WriteFile(filepath.Join(dateDir, "s1.jsonl"), []byte(strings.Join(events, "\n")), 0644)
+	if err := os.WriteFile(filepath.Join(dateDir, "s1.jsonl"), []byte(strings.Join(events, "\n")), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	manifest, err := BuildManifest(paths)
 	if err != nil {
@@ -64,7 +70,9 @@ func TestBuildManifest(t *testing.T) {
 func TestBuildManifestEmpty(t *testing.T) {
 	dir := t.TempDir()
 	paths := config.PathsFromRoot(dir)
-	paths.EnsureDirs()
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
 
 	manifest, err := BuildManifest(paths)
 	if err != nil {
@@ -79,14 +87,20 @@ func TestBuildManifestEmpty(t *testing.T) {
 func TestBuildManifest_SkipsBeforeMarker(t *testing.T) {
 	dir := t.TempDir()
 	paths := config.PathsFromRoot(dir)
-	paths.EnsureDirs()
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
 
 	// Create logs across multiple days
 	for _, date := range []string{"2026-03-15", "2026-03-20", "2026-04-01", "2026-04-08"} {
 		dateDir := filepath.Join(paths.Logs, date)
-		os.MkdirAll(dateDir, 0755)
+		if err := os.MkdirAll(dateDir, 0755); err != nil {
+			t.Fatalf("MkdirAll %s: %v", date, err)
+		}
 		event := `{"timestamp":"` + date + `T10:00:00Z","session_id":"s-` + date + `","tool_name":"Bash","working_directory":"/tmp"}` + "\n"
-		os.WriteFile(filepath.Join(dateDir, "s-"+date+".jsonl"), []byte(event), 0644)
+		if err := os.WriteFile(filepath.Join(dateDir, "s-"+date+".jsonl"), []byte(event), 0644); err != nil {
+			t.Fatalf("WriteFile %s: %v", date, err)
+		}
 	}
 
 	// Set marker to April 1 — should skip March dates, include April 1 and April 8
@@ -113,14 +127,20 @@ func TestBuildManifest_SkipsBeforeMarker(t *testing.T) {
 func TestBuildManifest_AfterBootstrapAndCompile(t *testing.T) {
 	dir := t.TempDir()
 	paths := config.PathsFromRoot(dir)
-	paths.EnsureDirs()
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
 
 	// Simulate bootstrap: write events with historical timestamps across 30 days
 	for _, date := range []string{"2026-03-09", "2026-03-15", "2026-03-20", "2026-03-25", "2026-04-01", "2026-04-07"} {
 		dateDir := filepath.Join(paths.Logs, date)
-		os.MkdirAll(dateDir, 0755)
+		if err := os.MkdirAll(dateDir, 0755); err != nil {
+			t.Fatalf("MkdirAll %s: %v", date, err)
+		}
 		event := `{"timestamp":"` + date + `T10:00:00Z","session_id":"s-` + date + `","tool_name":"Bash","working_directory":"/tmp"}` + "\n"
-		os.WriteFile(filepath.Join(dateDir, "s-"+date+".jsonl"), []byte(event), 0644)
+		if err := os.WriteFile(filepath.Join(dateDir, "s-"+date+".jsonl"), []byte(event), 0644); err != nil {
+			t.Fatalf("WriteFile %s: %v", date, err)
+		}
 	}
 
 	// First compile — no marker, should include all 6 sessions
@@ -155,22 +175,33 @@ func TestBuildManifest_AfterBootstrapAndCompile(t *testing.T) {
 func TestBuildManifest_MarkerSameDayIncludesAll(t *testing.T) {
 	dir := t.TempDir()
 	paths := config.PathsFromRoot(dir)
-	paths.EnsureDirs()
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
 
 	// Events from multiple days including marker day
 	for _, date := range []string{"2026-03-15", "2026-04-08"} {
 		dateDir := filepath.Join(paths.Logs, date)
-		os.MkdirAll(dateDir, 0755)
+		if err := os.MkdirAll(dateDir, 0755); err != nil {
+			t.Fatalf("MkdirAll %s: %v", date, err)
+		}
 		event := `{"timestamp":"` + date + `T10:00:00Z","session_id":"s-` + date + `","tool_name":"Bash","working_directory":"/tmp"}` + "\n"
-		os.WriteFile(filepath.Join(dateDir, "s-"+date+".jsonl"), []byte(event), 0644)
+		if err := os.WriteFile(filepath.Join(dateDir, "s-"+date+".jsonl"), []byte(event), 0644); err != nil {
+			t.Fatalf("WriteFile %s: %v", date, err)
+		}
 	}
 
 	// Marker is on April 8 at 7am — the 2026-04-08 dir should still be included
 	// (it has the same date as the marker), but 2026-03-15 should be excluded
 	marker := time.Date(2026, 4, 8, 7, 0, 0, 0, time.UTC)
-	WriteMarker(paths.CompileMarker, marker)
+	if err := WriteMarker(paths.CompileMarker, marker); err != nil {
+		t.Fatalf("WriteMarker: %v", err)
+	}
 
-	m, _ := BuildManifest(paths)
+	m, err := BuildManifest(paths)
+	if err != nil {
+		t.Fatalf("BuildManifest: %v", err)
+	}
 	// April 8 dir is NOT before marker date (same day) so it's included
 	// This means already-compiled sessions from that day get re-included
 	if m.TotalSessions != 1 {
@@ -188,12 +219,18 @@ func TestBuildManifest_MarkerSameDayIncludesAll(t *testing.T) {
 func TestBuildManifestJSON(t *testing.T) {
 	dir := t.TempDir()
 	paths := config.PathsFromRoot(dir)
-	paths.EnsureDirs()
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
 
 	dateDir := filepath.Join(paths.Logs, "2026-03-15")
-	os.MkdirAll(dateDir, 0755)
-	os.WriteFile(filepath.Join(dateDir, "abc.jsonl"),
-		[]byte(`{"timestamp":"2026-03-15T10:00:00Z","session_id":"abc","tool_name":"Bash","working_directory":"/tmp"}`+"\n"), 0644)
+	if err := os.MkdirAll(dateDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dateDir, "abc.jsonl"),
+		[]byte(`{"timestamp":"2026-03-15T10:00:00Z","session_id":"abc","tool_name":"Bash","working_directory":"/tmp"}`+"\n"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	manifest, err := BuildManifest(paths)
 	if err != nil {

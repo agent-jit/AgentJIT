@@ -58,7 +58,9 @@ func TestParseTranscript(t *testing.T) {
 func TestParseTranscriptEmpty(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "empty.jsonl")
-	os.WriteFile(path, []byte(""), 0644)
+	if err := os.WriteFile(path, []byte(""), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	events, err := ParseTranscript(path, 512)
 	if err != nil {

@@ -141,7 +141,9 @@ func loadProcessed(path string) ProcessedFiles {
 	if err != nil {
 		return processed
 	}
-	json.Unmarshal(data, &processed)
+	if err := json.Unmarshal(data, &processed); err != nil {
+		return processed
+	}
 	if processed.Files == nil {
 		processed.Files = make(map[string]time.Time)
 	}

@@ -27,7 +27,9 @@ func TestWatcherDetectsNewSkill(t *testing.T) {
 	// Create a new skill directory, then wait for the watcher to register
 	// the subdirectory before writing the skill file into it.
 	skillDir := filepath.Join(dir, "new-skill")
-	os.MkdirAll(skillDir, 0755)
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 	time.Sleep(200 * time.Millisecond)
 	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("test"), 0644)
 

@@ -50,7 +50,9 @@ func TestIsRunning(t *testing.T) {
 	}
 
 	// Write bogus PID — should not be running
-	os.WriteFile(pidPath, []byte("999999999"), 0644)
+	if err := os.WriteFile(pidPath, []byte("999999999"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 	if IsRunning(pidPath) {
 		t.Error("should not be running with invalid PID")
 	}
@@ -61,7 +63,9 @@ func TestCleanupStalePID(t *testing.T) {
 	pidPath := filepath.Join(dir, "daemon.pid")
 
 	// Write a stale PID
-	os.WriteFile(pidPath, []byte("999999999"), 0644)
+	if err := os.WriteFile(pidPath, []byte("999999999"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	CleanupStalePID(pidPath)
 

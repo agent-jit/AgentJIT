@@ -18,7 +18,9 @@ func TestCleanupOldLogs(t *testing.T) {
 	for _, d := range dirs {
 		dir := filepath.Join(paths.Logs, d)
 		_ = os.MkdirAll(dir, 0755)
-		os.WriteFile(filepath.Join(dir, "test.jsonl"), []byte("{}"), 0644)
+		if err := os.WriteFile(filepath.Join(dir, "test.jsonl"), []byte("{}"), 0644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
 	}
 
 	// Cleanup with 2-day retention, reference date 2026-04-01
