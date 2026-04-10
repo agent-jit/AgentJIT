@@ -5,6 +5,44 @@ All notable changes to AgentJIT will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.1.7] - 2026-04-10
+
+### Added
+- Auto-compile trigger in daemon: evaluates `ShouldFire()` on a 10s ticker for `event_count` and `interval` trigger modes
+- Separate `compileEventCount` atomic counter tracks events since last compile independently from total event count
+- "Next Compile" section in `aj stats` output showing trigger mode, progress toward next compilation (remaining events or time), and last compile timestamp
+- `CountEventsSinceMarker` lightweight event counter reads log files without full deserialization
+- JSON output for `aj stats --json` now includes `next_compile` field
+
+### Fixed
+- `EventsSinceCompile()` now correctly tracks events since last compile rather than returning total count
+- PowerShell companion scripts now detect native command failures via `PSNativeCommandUseErrorActionPreference`
+
+### Changed
+- Renamed binary from `agentjit` to `aj` (`cmd/agentjit` → `cmd/aj`), updated goreleaser, Makefile, and README
+
+## [0.1.6] - 2026-04-10
+
+### Added
+- Platform-aware skill compilation: compiler prompt receives `{{PLATFORM}}` and `{{SHELL}}` variables, generating `.ps1` PowerShell scripts on Windows instead of `.sh` bash scripts
+- Compile now scopes Claude's access to only post-marker log directories, preventing re-analysis of already-compiled sessions
+
+### Fixed
+- `copySkillDir` now recursively copies subdirectories so Windows fallback copy path includes companion scripts
+- Remaining errcheck lint errors in cmd, watcher test, bootstrap, and test files
+
+## [0.1.5] - 2026-04-06
+
+### Fixed
+- Detach daemon stdio to prevent SessionStart hook hang
+
+## [0.1.4] - 2026-04-06
+
+### Added
+- `aj stats record` subcommand for script-based skill execution tracking
+
 ## [0.1.3] - 2026-04-03
 
 ### Added
