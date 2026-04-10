@@ -221,6 +221,7 @@ aj stats record --skill "$SKILL_NAME"
 **On windows**, use this PowerShell template:
 ```powershell
 $ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
 
 $SKILL_NAME = "<skill-name>"
 
@@ -230,6 +231,9 @@ try {
     aj stats record --skill $SKILL_NAME
 } catch {
     aj stats record --skill $SKILL_NAME --success=false 2>$null
+    if ($_.Exception.Message -match "auth|permission|401|403") {
+        exit 2
+    }
     throw
 }
 ```
