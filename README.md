@@ -133,7 +133,7 @@ Remove-Item aj.zip
 ### Go Install
 
 ```bash
-go install github.com/agent-jit/agentjit/cmd/agentjit@latest
+go install github.com/agent-jit/agentjit/cmd/aj@latest
 ```
 
 ### Build from Source

@@ -3,7 +3,7 @@ version: 2
 project_name: aj
 
 builds:
-  - main: ./cmd/agentjit
+  - main: ./cmd/aj
     binary: aj
     env:
       - CGO_ENABLED=0

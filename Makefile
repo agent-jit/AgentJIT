@@ -1,6 +1,6 @@
 MODULE   := github.com/agent-jit/agentjit
 BIN      := aj
-CMD      := ./cmd/agentjit
+CMD      := ./cmd/aj
 VERSION  := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS  := -s -w -X $(MODULE)/internal/version.Version=$(VERSION)
 
