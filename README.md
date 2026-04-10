@@ -50,13 +50,35 @@ flowchart LR
         S3[/"Zero-token"/]
     end
 
+    subgraph runtime["Runtime Execution"]
+        direction TB
+        R1["Execute Skill"]
+        R2{"Success?"}
+        R3["Fallback to\nOriginal Workflow"]
+        R4["aj stats record"]
+        R1 --> R2
+        R2 -- "No" --> R3
+        R2 -- "Yes / No" --> R4
+    end
+
     hooks -- "stdin (JSON)" --> daemon
     daemon -- "~/.aj/skills/" --> skills
+    skills --> runtime
+    runtime -- "success rates +\nexisting skills\nas context" --> daemon
 
     style hooks fill:#4a5568,stroke:#a0aec0,color:#e2e8f0
     style daemon fill:#2b6cb0,stroke:#63b3ed,color:#e2e8f0
     style skills fill:#276749,stroke:#68d391,color:#e2e8f0
+    style runtime fill:#744210,stroke:#ecc94b,color:#fefcbf
 ```
+
+### The Self-Improvement Loop
+
+The arrow from **Runtime** back to the **Daemon** is the key: compiled skills are not static artifacts — they live inside a continuous feedback loop.
+
+- **Runtime Fallback** — If a compiled shell script fails during execution, the agent silently falls back to the original uncompiled workflow. The user perceives no interruption; the skill simply steps aside.
+- **Success Rate Auditing** — Execution outcomes are tracked via `aj stats record`. If a skill's success rate declines, that signal is fed into the next compilation cycle, where the compiler can deprecate or refactor it. Skills uninvoked for 20+ consecutive sessions are automatically flagged for deprecation.
+- **Iterative Recompilation** — The current skill library is fed as *context* to the compiler each cycle. It doesn't start from scratch — it examines existing skills, evaluates whether underlying patterns have shifted, and updates, merges, or replaces them accordingly. Like a JIT engine re-optimizing hot paths with fresh profiling data.
 
 ### The Numbers
 
