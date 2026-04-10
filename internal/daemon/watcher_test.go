@@ -31,7 +31,9 @@ func TestWatcherDetectsNewSkill(t *testing.T) {
 		t.Fatalf("MkdirAll: %v", err)
 	}
 	time.Sleep(200 * time.Millisecond)
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("test"), 0644)
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("test"), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 
 	// Wait for notification
 	select {

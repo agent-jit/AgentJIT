@@ -58,7 +58,9 @@ var initCmd = &cobra.Command{
 			settingsPath = config.ClaudeSettingsLocal(cwd)
 			// Also create local skills directory
 			localSkills := filepath.Join(cwd, ".claude", "skills")
-			os.MkdirAll(localSkills, 0755)
+			if err := os.MkdirAll(localSkills, 0755); err != nil {
+				return fmt.Errorf("creating local skills dir: %w", err)
+			}
 		} else {
 			settingsPath, err = config.ClaudeSettingsGlobal()
 			if err != nil {

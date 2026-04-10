@@ -23,7 +23,9 @@ var bootstrapCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		paths.EnsureDirs()
+		if err := paths.EnsureDirs(); err != nil {
+			return fmt.Errorf("creating directories: %w", err)
+		}
 
 		cfg, err := config.Load(paths.Config)
 		if err != nil {

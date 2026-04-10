@@ -52,7 +52,9 @@ var daemonStartCmd = &cobra.Command{
 			return fmt.Errorf("daemon already running")
 		}
 
-		paths.EnsureDirs()
+		if err := paths.EnsureDirs(); err != nil {
+			return fmt.Errorf("creating directories: %w", err)
+		}
 
 		cfg, err := config.Load(paths.Config)
 		if err != nil {
