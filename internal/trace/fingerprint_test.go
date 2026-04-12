@@ -67,3 +67,17 @@ func TestTokenizeBashCommand_IPBecomesVar(t *testing.T) {
 		t.Error("IP address should be detected as variable token")
 	}
 }
+
+func TestTokenizeBashCommand_FlagEqualsValue(t *testing.T) {
+	tokens := TokenizeBashCommand("kubectl get pods --namespace=staging")
+	if len(tokens) != 5 {
+		t.Fatalf("got %d tokens, want 5: %+v", len(tokens), tokens)
+	}
+	// --namespace=staging should be split into flag (literal) + value (variable)
+	if tokens[3].Value != "--namespace" || !tokens[3].Literal {
+		t.Errorf("token[3] = %+v, want literal '--namespace'", tokens[3])
+	}
+	if tokens[4].Value != "staging" || tokens[4].Literal {
+		t.Errorf("token[4] = %+v, want variable 'staging'", tokens[4])
+	}
+}
