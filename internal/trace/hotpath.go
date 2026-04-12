@@ -33,6 +33,9 @@ func dfs(g *TraceGraph, path []uint64, sessionSet []string, minFrequency, minLen
 	}
 
 	for nextID, edge := range adj {
+		if containsNode(path, nextID) {
+			continue
+		}
 		var commonSessions []string
 		if sessionSet == nil {
 			// First edge: use edge's session IDs directly
@@ -63,6 +66,16 @@ func dfs(g *TraceGraph, path []uint64, sessionSet []string, minFrequency, minLen
 			dfs(g, newPath, commonSessions, minFrequency, minLength, maxLength, results)
 		}
 	}
+}
+
+// containsNode checks if a node ID already exists in the current path (cycle detection).
+func containsNode(path []uint64, id uint64) bool {
+	for _, n := range path {
+		if n == id {
+			return true
+		}
+	}
+	return false
 }
 
 // intersect returns the intersection of two string slices.

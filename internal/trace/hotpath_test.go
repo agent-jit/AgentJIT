@@ -89,6 +89,34 @@ func TestFindHotPaths_PrunesSubPaths(t *testing.T) {
 	}
 }
 
+func TestFindHotPaths_CycleInGraph(t *testing.T) {
+	t0 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	// 3 sessions: git status -> git diff -> git status (cycle)
+	var events []ingest.Event
+	for i, sid := range []string{"s1", "s2", "s3"} {
+		base := t0.Add(time.Duration(i) * time.Hour)
+		events = append(events,
+			makeEvent(sid, "Bash", map[string]interface{}{"command": "git status"}, base),
+			makeEvent(sid, "Bash", map[string]interface{}{"command": "git diff"}, base.Add(time.Minute)),
+			makeEvent(sid, "Bash", map[string]interface{}{"command": "git status"}, base.Add(2*time.Minute)),
+		)
+	}
+
+	g := BuildGraph(events)
+	paths := FindHotPaths(g, 3, 2, 20)
+
+	// Paths should never contain repeated node IDs
+	for _, p := range paths {
+		seen := make(map[uint64]bool)
+		for _, nid := range p.NodeIDs {
+			if seen[nid] {
+				t.Errorf("path contains repeated node ID %d", nid)
+			}
+			seen[nid] = true
+		}
+	}
+}
+
 func TestFindHotPaths_MinLength(t *testing.T) {
 	t0 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
 	var events []ingest.Event
