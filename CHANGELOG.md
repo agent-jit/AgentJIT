@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Deterministic trace compiler**: zero-token pattern detection and compilation for recurring tool-call sequences
+  - `internal/trace/` package: trace graph builder, InputShape fingerprinting, hot path detection (DFS with session intersection), structural diffing and parameterization, confidence scoring
+  - `internal/compile/backend.go`: pluggable `CompilerBackend` interface with `SkillResult` type
+  - `internal/compile/tiered.go`: `TieredCompiler` routing patterns by confidence score to deterministic or LLM backends
+  - `internal/compile/deterministic.go`: generates `.sh`/`.ps1` scripts, `SKILL.md`, and `metadata.json` from patterns with zero LLM tokens
+  - `internal/compile/llm.go`: `LLMBackend` wrapping existing Claude-based compiler
+  - Trace analysis pre-pass in `RunCompile`: automatically detects and compiles deterministic patterns before invoking the LLM, with early exit when all patterns are handled deterministically (zero tokens used)
+  - `compile.deterministic_threshold` config setting (default 0.6) to control routing sensitivity
+  - `deterministic_patterns` and `llm_patterns` fields in compile session stats
+- **Interactive TUI** (`aj trace`): bubbletea-based terminal UI for exploring the trace graph
+  - Hot paths list view sorted by frequency with keyboard navigation (j/k, enter, esc, q)
+  - Detail view showing steps, parameters, confidence score, and estimated token savings
+  - `aj trace` CLI subcommand
+
+### Dependencies
+- Added `github.com/charmbracelet/bubbletea` and `github.com/charmbracelet/lipgloss` for TUI
+
 ## [0.1.7] - 2026-04-10
 
 ### Added

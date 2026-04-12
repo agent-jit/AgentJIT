@@ -310,6 +310,7 @@ aj config reset
 | `aj daemon stop` | Stop daemon gracefully |
 | `aj daemon status` | Show PID, uptime, event count |
 | `aj compile` | Manually trigger compilation |
+| `aj trace` | Interactive TUI for exploring trace graph and hot paths |
 | `aj bootstrap` | Import historical Claude Code transcripts |
 | `aj config get [KEY]` | Read config values |
 | `aj config set KEY VAL` | Write config values |
