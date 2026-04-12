@@ -2,6 +2,7 @@ package compile
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -320,5 +321,41 @@ func TestBuildPrompt_UnixShellVariable(t *testing.T) {
 	}
 	if !strings.Contains(prompt, "Shell=bash") {
 		t.Errorf("expected Shell=bash, got %q", prompt)
+	}
+}
+
+func TestRunTraceAnalysis_BuildsGraphFromEvents(t *testing.T) {
+	dir := t.TempDir()
+	paths := config.PathsFromRoot(dir)
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
+
+	// Create 3 sessions with same pattern: git status -> git diff
+	for i, sid := range []string{"s1", "s2", "s3"} {
+		date := fmt.Sprintf("2026-04-%02d", 1+i)
+		dateDir := filepath.Join(paths.Logs, date)
+		if err := os.MkdirAll(dateDir, 0755); err != nil {
+			t.Fatalf("MkdirAll: %v", err)
+		}
+		events := fmt.Sprintf(
+			`{"timestamp":"%sT10:00:00Z","session_id":"%s","event_type":"post_tool_use","tool_name":"Bash","tool_input":{"command":"git status"},"working_directory":"/tmp"}`+"\n"+
+				`{"timestamp":"%sT10:01:00Z","session_id":"%s","event_type":"post_tool_use","tool_name":"Bash","tool_input":{"command":"git diff"},"working_directory":"/tmp"}`+"\n",
+			date, sid, date, sid)
+		if err := os.WriteFile(filepath.Join(dateDir, sid+".jsonl"), []byte(events), 0644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+	}
+
+	cfg := config.DefaultConfig()
+	cfg.Compile.DeterministicThreshold = 0.6
+
+	results, err := RunTraceAnalysis(paths, cfg)
+	if err != nil {
+		t.Fatalf("RunTraceAnalysis: %v", err)
+	}
+
+	if results.PatternsFound == 0 {
+		t.Error("expected at least one pattern from 3 identical sessions")
 	}
 }

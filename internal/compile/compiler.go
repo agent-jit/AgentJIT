@@ -20,6 +20,7 @@ import (
 	"github.com/agent-jit/agentjit/internal/config"
 	"github.com/agent-jit/agentjit/internal/skills"
 	"github.com/agent-jit/agentjit/internal/stats"
+	"github.com/agent-jit/agentjit/internal/trace"
 )
 
 // SessionSummary is a lightweight summary of a single session log file.
@@ -382,4 +383,61 @@ func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) er
 	elapsed := time.Since(start).Round(time.Second)
 	fmt.Printf("[AJ] Compilation complete (%s)\n", elapsed)
 	return nil
+}
+
+// TraceAnalysisResult holds the outcome of the trace pre-pass.
+type TraceAnalysisResult struct {
+	PatternsFound      int
+	DeterministicCount int
+	LLMCount           int
+	SkillsCreated      []SkillResult
+}
+
+// RunTraceAnalysis performs the deterministic trace analysis pre-pass.
+// It gathers unprocessed events, builds a trace graph, finds hot paths,
+// parameterizes them, and compiles confident patterns deterministically.
+func RunTraceAnalysis(paths config.Paths, cfg config.Config) (TraceAnalysisResult, error) {
+	var result TraceAnalysisResult
+
+	// Gather events using existing GatherUnprocessedLogs
+	events, err := GatherUnprocessedLogs(paths, cfg.Compile.MaxContextLines)
+	if err != nil {
+		return result, fmt.Errorf("gathering events: %w", err)
+	}
+	if len(events) == 0 {
+		return result, nil
+	}
+
+	// Build trace graph
+	g := trace.BuildGraph(events)
+	if len(g.Nodes) == 0 {
+		return result, nil
+	}
+
+	// Find hot paths
+	hotPaths := trace.FindHotPaths(g, cfg.Compile.MinPatternFrequency, 2, 20)
+	if len(hotPaths) == 0 {
+		return result, nil
+	}
+
+	// Parameterize
+	patterns := trace.Parameterize(hotPaths, events, g)
+	result.PatternsFound = len(patterns)
+
+	// Route and compile deterministic patterns
+	detBatch, llmBatch := trace.RoutePatterns(patterns, cfg.Compile.DeterministicThreshold)
+	result.DeterministicCount = len(detBatch)
+	result.LLMCount = len(llmBatch)
+
+	if len(detBatch) > 0 {
+		platform := cfg.Compile.ResolvePlatform()
+		backend := NewDeterministicBackend(paths, platform)
+		skills, err := backend.Compile(context.Background(), detBatch)
+		if err != nil {
+			return result, fmt.Errorf("deterministic compile: %w", err)
+		}
+		result.SkillsCreated = skills
+	}
+
+	return result, nil
 }
