@@ -38,6 +38,8 @@ type CompileSessionData struct {
 	SkillsUpdated           int     `json:"skills_updated"`
 	SessionsProcessed       int     `json:"sessions_processed"`
 	EventsProcessed         int     `json:"events_processed"`
+	DeterministicPatterns   int     `json:"deterministic_patterns"`
+	LLMPatterns             int     `json:"llm_patterns"`
 }
 
 // SkillExecutionData holds metrics for a single skill execution.

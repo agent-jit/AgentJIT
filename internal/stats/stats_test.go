@@ -145,6 +145,42 @@ func TestAggregate(t *testing.T) {
 	}
 }
 
+func TestAppendCompileSession_DeterministicFields(t *testing.T) {
+	dir := t.TempDir()
+	statsPath := filepath.Join(dir, "stats.jsonl")
+
+	data := CompileSessionData{
+		SessionID:             "det-1",
+		SkillsCreated:        2,
+		DeterministicPatterns: 2,
+		LLMPatterns:          0,
+	}
+
+	if err := AppendCompileSession(statsPath, data); err != nil {
+		t.Fatalf("AppendCompileSession: %v", err)
+	}
+
+	records, err := ReadAllRecords(statsPath)
+	if err != nil {
+		t.Fatalf("ReadAllRecords: %v", err)
+	}
+
+	if len(records) != 1 {
+		t.Fatalf("got %d records, want 1", len(records))
+	}
+
+	var parsed CompileSessionData
+	if err := json.Unmarshal(records[0].Data, &parsed); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if parsed.DeterministicPatterns != 2 {
+		t.Errorf("DeterministicPatterns = %d, want 2", parsed.DeterministicPatterns)
+	}
+	if parsed.LLMPatterns != 0 {
+		t.Errorf("LLMPatterns = %d, want 0", parsed.LLMPatterns)
+	}
+}
+
 func TestAppendToNonExistentDir(t *testing.T) {
 	dir := t.TempDir()
 	statsPath := filepath.Join(dir, "subdir", "stats.jsonl")
