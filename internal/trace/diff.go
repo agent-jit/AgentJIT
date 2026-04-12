@@ -179,6 +179,21 @@ func diffBashInstances(instances []map[string]interface{}) (string, []Parameter)
 	return strings.Join(templateParts, " "), params
 }
 
+// CollectUniqueParams gathers unique parameters across all steps, preserving order.
+func CollectUniqueParams(steps []PatternStep) []Parameter {
+	seen := make(map[string]bool)
+	var params []Parameter
+	for _, step := range steps {
+		for _, p := range step.Parameters {
+			if !seen[p.Name] {
+				seen[p.Name] = true
+				params = append(params, p)
+			}
+		}
+	}
+	return params
+}
+
 // inferParamName guesses a descriptive name for a parameter based on context.
 // It checks the preceding token for known flags and falls back to a generic name.
 func inferParamName(tokens []Token, pos int, fallbackIdx int) string {
