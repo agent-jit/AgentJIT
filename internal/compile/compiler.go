@@ -229,6 +229,33 @@ func RunCompile(paths config.Paths, cfg config.Config, promptTemplate string) er
 	existingSkills, _ := skills.ScanSkillsDir(paths.Skills)
 	fmt.Printf("%d skills\n", len(existingSkills))
 
+	// 2.5. Trace analysis pre-pass (deterministic compilation)
+	if cfg.Compile.DeterministicThreshold < 1.0 {
+		fmt.Print("[AJ] Running trace analysis... ")
+		traceResult, traceErr := RunTraceAnalysis(paths, cfg)
+		if traceErr != nil {
+			fmt.Printf("failed: %v\n", traceErr)
+		} else if traceResult.PatternsFound > 0 {
+			fmt.Printf("%d patterns found (%d deterministic, %d for LLM)\n",
+				traceResult.PatternsFound, traceResult.DeterministicCount, traceResult.LLMCount)
+			for _, s := range traceResult.SkillsCreated {
+				fmt.Printf("[AJ] Deterministic skill: %s\n", s.Name)
+			}
+			// If ALL patterns were handled deterministically, we can skip the LLM
+			if traceResult.LLMCount == 0 && traceResult.DeterministicCount > 0 {
+				fmt.Println("[AJ] All patterns compiled deterministically — skipping LLM")
+				if err := WriteMarker(paths.CompileMarker, time.Now().UTC()); err != nil {
+					return fmt.Errorf("writing marker: %w", err)
+				}
+				elapsed := time.Since(start).Round(time.Second)
+				fmt.Printf("[AJ] Compilation complete (%s, zero tokens)\n", elapsed)
+				return nil
+			}
+		} else {
+			fmt.Println("no deterministic patterns")
+		}
+	}
+
 	// 3. Build prompt template with config values substituted
 	prompt := BuildPrompt(promptTemplate, cfg, paths.Skills)
 
