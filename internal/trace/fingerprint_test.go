@@ -81,3 +81,54 @@ func TestTokenizeBashCommand_FlagEqualsValue(t *testing.T) {
 		t.Errorf("token[4] = %+v, want variable 'staging'", tokens[4])
 	}
 }
+
+func TestInputShapeBash(t *testing.T) {
+	input := map[string]interface{}{
+		"command": "kubectl get pods -n staging",
+	}
+	shape := InputShape("Bash", input)
+	if shape["command"] != "kubectl get pods -n {VAR}" {
+		t.Errorf("shape[command] = %q", shape["command"])
+	}
+}
+
+func TestInputShapeBash_DifferentNamespace(t *testing.T) {
+	shape1 := InputShape("Bash", map[string]interface{}{"command": "kubectl get pods -n staging"})
+	shape2 := InputShape("Bash", map[string]interface{}{"command": "kubectl get pods -n production"})
+	if shape1["command"] != shape2["command"] {
+		t.Errorf("same structure should produce same shape: %q vs %q", shape1["command"], shape2["command"])
+	}
+}
+
+func TestInputShapeNonBash(t *testing.T) {
+	input := map[string]interface{}{
+		"file_path": "/some/path.go",
+		"line":      42,
+	}
+	shape := InputShape("Read", input)
+	if shape["file_path"] != "{STRING}" {
+		t.Errorf("shape[file_path] = %q, want {STRING}", shape["file_path"])
+	}
+	if shape["line"] != "{NUMBER}" {
+		t.Errorf("shape[line] = %q, want {NUMBER}", shape["line"])
+	}
+}
+
+func TestNodeID_SameShapeSameID(t *testing.T) {
+	shape1 := InputShape("Bash", map[string]interface{}{"command": "kubectl get pods -n staging"})
+	shape2 := InputShape("Bash", map[string]interface{}{"command": "kubectl get pods -n production"})
+	id1 := NodeID("Bash", shape1)
+	id2 := NodeID("Bash", shape2)
+	if id1 != id2 {
+		t.Errorf("same tool+shape should produce same NodeID: %d vs %d", id1, id2)
+	}
+}
+
+func TestNodeID_DifferentToolDifferentID(t *testing.T) {
+	shape := map[string]string{"command": "ls"}
+	id1 := NodeID("Bash", shape)
+	id2 := NodeID("Write", shape)
+	if id1 == id2 {
+		t.Error("different tools should produce different NodeIDs")
+	}
+}

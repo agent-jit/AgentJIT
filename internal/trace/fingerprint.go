@@ -1,7 +1,10 @@
 package trace
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -119,4 +122,76 @@ func isValidIPv4(s string) bool {
 		}
 	}
 	return true
+}
+
+// InputShape produces a structural fingerprint of a tool's input.
+// For Bash: tokenizes the command and replaces variable tokens with {VAR}.
+// For other tools: replaces values with type tags ({STRING}, {NUMBER}, etc.).
+func InputShape(toolName string, input map[string]interface{}) map[string]string {
+	shape := make(map[string]string, len(input))
+
+	if toolName == "Bash" {
+		if cmd, ok := input["command"].(string); ok {
+			tokens := TokenizeBashCommand(cmd)
+			var parts []string
+			for _, tok := range tokens {
+				if tok.Literal {
+					parts = append(parts, tok.Value)
+				} else {
+					parts = append(parts, "{VAR}")
+				}
+			}
+			shape["command"] = strings.Join(parts, " ")
+		}
+		for k, v := range input {
+			if k == "command" {
+				continue
+			}
+			shape[k] = typeTag(v)
+		}
+		return shape
+	}
+
+	for k, v := range input {
+		shape[k] = typeTag(v)
+	}
+	return shape
+}
+
+func typeTag(v interface{}) string {
+	switch v.(type) {
+	case string:
+		return "{STRING}"
+	case float64, int, int64:
+		return "{NUMBER}"
+	case bool:
+		return "{BOOL}"
+	case nil:
+		return "{NULL}"
+	default:
+		return "{OBJECT}"
+	}
+}
+
+// NodeID computes a stable hash for a (toolName, inputShape) pair.
+func NodeID(toolName string, shape map[string]string) uint64 {
+	h := sha256.New()
+	h.Write([]byte(toolName))
+	h.Write([]byte{0})
+
+	keys := make([]string, 0, len(shape))
+	for k := range shape {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		h.Write([]byte(k))
+		h.Write([]byte{0})
+		h.Write([]byte(shape[k]))
+		h.Write([]byte{0})
+	}
+
+	sum := h.Sum(nil)
+	return binary.BigEndian.Uint64(sum[:8])
 }
