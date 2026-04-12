@@ -147,10 +147,7 @@ func generatePowerShellScript(steps []trace.PatternStep) string {
 	params := collectParams(steps)
 	var b strings.Builder
 
-	b.WriteString("$ErrorActionPreference = 'Stop'\n")
-	b.WriteString("$PSNativeCommandUseErrorActionPreference = $true\n\n")
-
-	// Param block for parameters.
+	// Param block must appear before any executable statements.
 	if len(params) > 0 {
 		b.WriteString("param(\n")
 		for i, p := range params {
@@ -164,6 +161,9 @@ func generatePowerShellScript(steps []trace.PatternStep) string {
 		}
 		b.WriteString(")\n\n")
 	}
+
+	b.WriteString("$ErrorActionPreference = 'Stop'\n")
+	b.WriteString("$PSNativeCommandUseErrorActionPreference = $true\n\n")
 
 	// Emit steps, skipping non-Bash.
 	stepNum := 0
