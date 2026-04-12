@@ -24,6 +24,7 @@ type CompileConfig struct {
 	MinPatternFrequency    int   `json:"min_pattern_frequency"`
 	MinTokenSavings        int   `json:"min_token_savings"`
 	DeprecateAfterSessions int   `json:"deprecate_after_sessions"`
+	DeterministicThreshold float64 `json:"deterministic_threshold"`
 	Platform               string `json:"platform,omitempty"` // "windows", "linux", "darwin" — auto-detected if empty
 }
 
@@ -64,6 +65,7 @@ func DefaultConfig() Config {
 			MinPatternFrequency:    3,
 			MinTokenSavings:        500,
 			DeprecateAfterSessions: 20,
+			DeterministicThreshold: 0.6,
 		},
 		Scope: ScopeConfig{
 			GlobalCLITools: []string{

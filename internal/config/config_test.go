@@ -90,6 +90,13 @@ func TestLoadPartialJSON(t *testing.T) {
 	}
 }
 
+func TestDefaultConfig_DeterministicThreshold(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.Compile.DeterministicThreshold != 0.6 {
+		t.Errorf("DeterministicThreshold = %f, want 0.6", cfg.Compile.DeterministicThreshold)
+	}
+}
+
 func TestResolvePlatform_DefaultUsesRuntime(t *testing.T) {
 	cfg := DefaultConfig()
 	got := cfg.Compile.ResolvePlatform()
