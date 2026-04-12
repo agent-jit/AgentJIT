@@ -2,6 +2,13 @@ package trace
 
 import "testing"
 
+func TestScorePattern_EmptyPattern(t *testing.T) {
+	score := ScorePattern(Pattern{})
+	if score != 0 {
+		t.Errorf("empty pattern should score 0, got %.2f", score)
+	}
+}
+
 func TestScorePattern_AllBashHighConfidence(t *testing.T) {
 	p := Pattern{
 		Steps: []PatternStep{
@@ -41,9 +48,9 @@ func TestScorePattern_TooManyParams(t *testing.T) {
 		Frequency: 3,
 	}
 	score := ScorePattern(p)
-	// avgParamsPerStep = 4 > 3, should lose 0.2
-	if score >= 1.0 {
-		t.Errorf("many-param pattern should have reduced score, got %.2f", score)
+	// avgParamsPerStep = 4 > 3, should lose 0.2 → score = 0.8
+	if score != 0.8 {
+		t.Errorf("many-param all-Bash pattern should score 0.80, got %.2f", score)
 	}
 }
 
@@ -54,9 +61,9 @@ func TestScorePattern_LongPathPenalty(t *testing.T) {
 	}
 	p := Pattern{Steps: steps, Frequency: 3}
 	score := ScorePattern(p)
-	// pathLength > 12, should lose 0.1
-	if score >= 1.0 {
-		t.Errorf("long pattern should have reduced score, got %.2f", score)
+	// pathLength > 12, should lose 0.1 → score = 0.9
+	if score != 0.9 {
+		t.Errorf("long all-Bash pattern should score 0.90, got %.2f", score)
 	}
 }
 

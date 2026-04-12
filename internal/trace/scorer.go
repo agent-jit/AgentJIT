@@ -3,6 +3,10 @@ package trace
 // ScorePattern evaluates confidence that a pattern can be compiled deterministically.
 // Returns a float64 in [0, 1]. Scores >= threshold route to deterministic backend.
 func ScorePattern(p Pattern) float64 {
+	if len(p.Steps) == 0 {
+		return 0
+	}
+
 	score := 1.0
 
 	// Penalize non-Bash tools proportionally: more non-Bash steps = lower confidence.
