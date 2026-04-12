@@ -92,6 +92,11 @@ func parameterizeHotPath(hp HotPath, bySession map[string][]ingest.Event, g *Tra
 // findNthMatchingEvent walks through a session's events in order and matches
 // them against the hot path's node sequence. It returns the event that
 // corresponds to the step at stepIdx.
+//
+// NOTE: This uses greedy, non-backtracking matching. If a session contains
+// extra events whose NodeID matches a path step, the greedy match may bind
+// the wrong event instance, producing slightly off parameter values. This is
+// acceptable for the current use case where sessions closely follow the pattern.
 func findNthMatchingEvent(sessionEvents []ingest.Event, stepIdx int, pathNodeIDs []uint64) *ingest.Event {
 	matchIdx := 0
 	for i := range sessionEvents {
