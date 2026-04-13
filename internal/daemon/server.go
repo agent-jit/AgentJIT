@@ -149,6 +149,11 @@ func (s *Server) Start() error {
 	// Auto-compile trigger checker
 	if s.cfg.Compile.TriggerMode != "manual" {
 		s.trigger = compile.NewTrigger(s.cfg)
+		// Seed in-memory counter from disk so events from prior daemon
+		// lifetimes are counted toward the trigger threshold.
+		if diskCount, _, err := compile.CountEventsSinceMarker(s.paths); err == nil && diskCount > 0 {
+			s.compileEventCount.Store(int64(diskCount))
+		}
 		go func() {
 			ticker := time.NewTicker(10 * time.Second)
 			defer ticker.Stop()
