@@ -13,6 +13,46 @@ import (
 
 var traceAll bool
 
+// loadTraceData loads events and builds a trace graph. Shared by trace subcommands.
+func loadTraceData(all bool) ([]ingest.Event, *trace.TraceGraph, error) {
+	paths, err := config.DefaultPaths()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cfg, err := config.Load(paths.Config)
+	if err != nil {
+		return nil, nil, fmt.Errorf("loading config: %w", err)
+	}
+
+	if all {
+		fmt.Print("[AJ] Loading ALL events under retention... ")
+	} else {
+		fmt.Print("[AJ] Loading events... ")
+	}
+
+	var events []ingest.Event
+	if all {
+		events, err = compile.GatherAllLogs(paths, cfg.Compile.MaxContextLines)
+	} else {
+		events, err = compile.GatherUnprocessedLogs(paths, cfg.Compile.MaxContextLines)
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("gathering events: %w", err)
+	}
+	fmt.Printf("%d events\n", len(events))
+
+	if len(events) == 0 {
+		return nil, nil, nil
+	}
+
+	fmt.Print("[AJ] Building trace graph... ")
+	g := trace.BuildGraph(events)
+	fmt.Printf("%d nodes, %d edges\n", len(g.Nodes), countEdges(g))
+
+	return events, g, nil
+}
+
 var traceCmd = &cobra.Command{
 	Use:   "trace",
 	Short: "Explore the trace graph of tool-call patterns",
@@ -21,37 +61,19 @@ var traceCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-
 		cfg, err := config.Load(paths.Config)
 		if err != nil {
 			return fmt.Errorf("loading config: %w", err)
 		}
 
-		if traceAll {
-			fmt.Print("[AJ] Loading ALL events under retention... ")
-		} else {
-			fmt.Print("[AJ] Loading events... ")
-		}
-
-		var events []ingest.Event
-		if traceAll {
-			events, err = compile.GatherAllLogs(paths, cfg.Compile.MaxContextLines)
-		} else {
-			events, err = compile.GatherUnprocessedLogs(paths, cfg.Compile.MaxContextLines)
-		}
+		events, g, err := loadTraceData(traceAll)
 		if err != nil {
-			return fmt.Errorf("gathering events: %w", err)
+			return err
 		}
-		fmt.Printf("%d events\n", len(events))
-
-		if len(events) == 0 {
+		if events == nil {
 			fmt.Println("[AJ] No events to analyze. Run some Claude Code sessions first.")
 			return nil
 		}
-
-		fmt.Print("[AJ] Building trace graph... ")
-		g := trace.BuildGraph(events)
-		fmt.Printf("%d nodes, %d edges\n", len(g.Nodes), countEdges(g))
 
 		fmt.Print("[AJ] Detecting hot paths... ")
 		hotPaths := trace.FindHotPaths(g, cfg.Compile.MinPatternFrequency, 2, 20)

@@ -30,6 +30,7 @@ type Model struct {
 	paths    []AnnotatedPath
 	graph    *trace.TraceGraph
 	cursor   int
+	offset   int // scroll offset for list view
 	view     view
 	width    int
 	height   int
@@ -55,6 +56,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.offset = clampOffset(m.cursor, m.offset, m.visibleLines())
 
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -65,11 +67,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "up", "k":
 			if m.view == viewList && m.cursor > 0 {
 				m.cursor--
+				m.offset = clampOffset(m.cursor, m.offset, m.visibleLines())
 			}
 
 		case "down", "j":
 			if m.view == viewList && m.cursor < len(m.paths)-1 {
 				m.cursor++
+				m.offset = clampOffset(m.cursor, m.offset, m.visibleLines())
 			}
 
 		case "enter":
@@ -101,6 +105,30 @@ func (m Model) View() string {
 	}
 }
 
+// visibleLines returns how many list items fit in the terminal.
+// Accounts for title (2 lines), help footer (2 lines).
+func (m Model) visibleLines() int {
+	if m.height <= 0 {
+		return len(m.paths) // no size info yet, show all
+	}
+	avail := m.height - 4 // title + blank + blank + help
+	if avail < 1 {
+		avail = 1
+	}
+	return avail
+}
+
+// clampOffset adjusts the scroll offset so the cursor stays visible.
+func clampOffset(cursor, offset, vis int) int {
+	if cursor < offset {
+		offset = cursor
+	}
+	if cursor >= offset+vis {
+		offset = cursor - vis + 1
+	}
+	return offset
+}
+
 func (m Model) viewList() string {
 	var b strings.Builder
 
@@ -114,7 +142,19 @@ func (m Model) viewList() string {
 		return b.String()
 	}
 
-	for i, ap := range m.paths {
+	vis := m.visibleLines()
+	end := m.offset + vis
+	if end > len(m.paths) {
+		end = len(m.paths)
+	}
+
+	if m.offset > 0 {
+		b.WriteString(dimStyle.Render(fmt.Sprintf("  \u2191 %d more", m.offset)))
+		b.WriteString("\n")
+	}
+
+	for i := m.offset; i < end; i++ {
+		ap := m.paths[i]
 		cursor := "  "
 		style := dimStyle
 		if i == m.cursor {
@@ -128,6 +168,11 @@ func (m Model) viewList() string {
 		b.WriteString(style.Render(cursor + label))
 		b.WriteString(" ")
 		b.WriteString(freq)
+		b.WriteString("\n")
+	}
+
+	if end < len(m.paths) {
+		b.WriteString(dimStyle.Render(fmt.Sprintf("  \u2193 %d more", len(m.paths)-end)))
 		b.WriteString("\n")
 	}
 
