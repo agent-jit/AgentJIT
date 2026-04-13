@@ -115,7 +115,22 @@ func countEventsInFile(path string, after time.Time) (int, error) {
 // GatherUnprocessedLogs reads all JSONL events from log files newer than
 // the last compile marker. Returns events sorted by timestamp, capped at maxLines.
 func GatherUnprocessedLogs(paths config.Paths, maxLines int) ([]ingest.Event, error) {
-	marker, _ := ReadMarker(paths.CompileMarker)
+	return gatherLogs(paths, maxLines, false)
+}
+
+// GatherAllLogs reads all JSONL events from log files regardless of the
+// compile marker. Returns events sorted by timestamp, capped at maxLines.
+func GatherAllLogs(paths config.Paths, maxLines int) ([]ingest.Event, error) {
+	return gatherLogs(paths, maxLines, true)
+}
+
+// gatherLogs is the shared implementation. When ignoreMarker is true,
+// all events under the logs directory are returned regardless of the compile marker.
+func gatherLogs(paths config.Paths, maxLines int, ignoreMarker bool) ([]ingest.Event, error) {
+	var marker time.Time
+	if !ignoreMarker {
+		marker, _ = ReadMarker(paths.CompileMarker)
+	}
 
 	dateDirs, err := os.ReadDir(paths.Logs)
 	if err != nil {

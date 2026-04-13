@@ -5,10 +5,13 @@ import (
 
 	"github.com/agent-jit/agentjit/internal/compile"
 	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ingest"
 	"github.com/agent-jit/agentjit/internal/trace"
 	"github.com/agent-jit/agentjit/internal/tui"
 	"github.com/spf13/cobra"
 )
+
+var traceAll bool
 
 var traceCmd = &cobra.Command{
 	Use:   "trace",
@@ -24,8 +27,18 @@ var traceCmd = &cobra.Command{
 			return fmt.Errorf("loading config: %w", err)
 		}
 
-		fmt.Print("[AJ] Loading events... ")
-		events, err := compile.GatherUnprocessedLogs(paths, cfg.Compile.MaxContextLines)
+		if traceAll {
+			fmt.Print("[AJ] Loading ALL events under retention... ")
+		} else {
+			fmt.Print("[AJ] Loading events... ")
+		}
+
+		var events []ingest.Event
+		if traceAll {
+			events, err = compile.GatherAllLogs(paths, cfg.Compile.MaxContextLines)
+		} else {
+			events, err = compile.GatherUnprocessedLogs(paths, cfg.Compile.MaxContextLines)
+		}
 		if err != nil {
 			return fmt.Errorf("gathering events: %w", err)
 		}
@@ -102,5 +115,6 @@ func countEdges(g *trace.TraceGraph) int {
 }
 
 func init() {
+	traceCmd.Flags().BoolVar(&traceAll, "all", false, "Analyze all events under retention (ignore compile marker)")
 	rootCmd.AddCommand(traceCmd)
 }

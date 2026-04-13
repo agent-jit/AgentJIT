@@ -60,6 +60,39 @@ func TestGatherUnprocessedLogs(t *testing.T) {
 	}
 }
 
+func TestGatherAllLogs(t *testing.T) {
+	root := t.TempDir()
+	paths := config.PathsFromRoot(root)
+	_ = paths.EnsureDirs()
+
+	t1 := time.Date(2026, 3, 30, 10, 0, 0, 0, time.UTC)
+	t2 := time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC)
+	writeTestEvent(t, paths.Logs, "old_session", t1)
+	writeTestEvent(t, paths.Logs, "new_session", t2)
+
+	// Set marker between t1 and t2
+	marker := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	_ = WriteMarker(paths.CompileMarker, marker)
+
+	// GatherAllLogs should return both events despite marker
+	events, err := GatherAllLogs(paths, 50000)
+	if err != nil {
+		t.Fatalf("GatherAllLogs: %v", err)
+	}
+	if len(events) != 2 {
+		t.Errorf("got %d events, want 2 (all events regardless of marker)", len(events))
+	}
+
+	// Verify GatherUnprocessedLogs still respects marker
+	unprocessed, err := GatherUnprocessedLogs(paths, 50000)
+	if err != nil {
+		t.Fatalf("GatherUnprocessedLogs: %v", err)
+	}
+	if len(unprocessed) != 1 {
+		t.Errorf("GatherUnprocessedLogs got %d events, want 1", len(unprocessed))
+	}
+}
+
 func TestGatherAllLogsNoMarker(t *testing.T) {
 	root := t.TempDir()
 	paths := config.PathsFromRoot(root)
