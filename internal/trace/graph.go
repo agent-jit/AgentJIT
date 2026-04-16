@@ -15,9 +15,12 @@ type Node struct {
 
 // Edge represents a transition between two nodes.
 type Edge struct {
-	From, To   uint64   // node IDs
-	Weight     int      // number of times this transition observed
-	SessionIDs []string // which sessions contributed
+	From, To       uint64            // node IDs
+	Weight         int               // number of times this transition observed
+	SessionIDs     []string          // which sessions contributed
+	SessionWeights map[string]int    // per-session transition counts
+	DataFlow    bool     // true if output of From feeds into input of To
+	FlowTokens []string  // shared tokens indicating data flow
 }
 
 // TraceGraph is a directed graph of tool-call sequences.
@@ -82,11 +85,12 @@ func (g *TraceGraph) addEdge(from, to uint64, sessionID string) {
 
 	edge, ok := g.Edges[from][to]
 	if !ok {
-		edge = &Edge{From: from, To: to}
+		edge = &Edge{From: from, To: to, SessionWeights: make(map[string]int)}
 		g.Edges[from][to] = edge
 	}
 
 	edge.Weight++
+	edge.SessionWeights[sessionID]++
 
 	for _, sid := range edge.SessionIDs {
 		if sid == sessionID {
