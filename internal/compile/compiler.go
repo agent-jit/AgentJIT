@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/agent-jit/agentjit/internal/config"
+	"github.com/agent-jit/agentjit/internal/ir"
 	"github.com/agent-jit/agentjit/internal/skills"
 	"github.com/agent-jit/agentjit/internal/stats"
 	"github.com/agent-jit/agentjit/internal/trace"
@@ -426,7 +427,6 @@ type TraceAnalysisResult struct {
 func RunTraceAnalysis(paths config.Paths, cfg config.Config) (TraceAnalysisResult, error) {
 	var result TraceAnalysisResult
 
-	// Gather events using existing GatherUnprocessedLogs
 	events, err := GatherUnprocessedLogs(paths, cfg.Compile.MaxContextLines)
 	if err != nil {
 		return result, fmt.Errorf("gathering events: %w", err)
@@ -435,11 +435,28 @@ func RunTraceAnalysis(paths config.Paths, cfg config.Config) (TraceAnalysisResul
 		return result, nil
 	}
 
+	// Load IR catalog if available
+	var irMatcher *ir.Matcher
+	if _, statErr := os.Stat(paths.IRCatalog); statErr == nil {
+		cat, loadErr := ir.LoadCatalog(paths.IRCatalog)
+		if loadErr == nil {
+			irMatcher = ir.NewMatcher(cat)
+		}
+	}
+
 	// Build trace graph
-	g := trace.BuildGraph(events)
+	var g *trace.TraceGraph
+	if irMatcher != nil {
+		g = BuildGraphWithIR(events, irMatcher)
+	} else {
+		g = trace.BuildGraph(events)
+	}
 	if len(g.Nodes) == 0 {
 		return result, nil
 	}
+
+	// Detect data-flow edges
+	trace.DetectDataFlowEdges(g, events, 5)
 
 	// Find hot paths
 	hotPaths := trace.FindHotPaths(g, cfg.Compile.MinPatternFrequency, 2, 20)
@@ -447,12 +464,23 @@ func RunTraceAnalysis(paths config.Paths, cfg config.Config) (TraceAnalysisResul
 		return result, nil
 	}
 
+	// Rank and take top N
+	ranked := trace.RankHotPaths(hotPaths)
+	maxPatterns := cfg.Compile.MaxPatternsPerCompile
+	if maxPatterns <= 0 {
+		maxPatterns = 10
+	}
+	topPaths := make([]trace.HotPath, 0, maxPatterns)
+	for i := 0; i < len(ranked) && i < maxPatterns; i++ {
+		topPaths = append(topPaths, ranked[i].HotPath)
+	}
+
 	// Parameterize
-	patterns := trace.Parameterize(hotPaths, events, g)
+	patterns := trace.Parameterize(topPaths, events, g)
 	result.PatternsFound = len(patterns)
 
-	// Route and compile deterministic patterns
-	detBatch, llmBatch := trace.RoutePatterns(patterns, cfg.Compile.DeterministicThreshold)
+	// Score with data-flow bonus and route
+	detBatch, llmBatch := routePatternsWithDataFlow(patterns, cfg.Compile.DeterministicThreshold, g)
 	result.DeterministicCount = len(detBatch)
 	result.LLMCount = len(llmBatch)
 
@@ -467,4 +495,27 @@ func RunTraceAnalysis(paths config.Paths, cfg config.Config) (TraceAnalysisResul
 	}
 
 	return result, nil
+}
+
+// routePatternsWithDataFlow routes patterns using data-flow-enhanced scoring.
+func routePatternsWithDataFlow(patterns []trace.Pattern, threshold float64, g *trace.TraceGraph) (deterministic, llm []trace.Pattern) {
+	for _, p := range patterns {
+		dfCount := 0
+		for i := 0; i < len(p.Steps)-1; i++ {
+			fromID := p.Steps[i].NodeID
+			toID := p.Steps[i+1].NodeID
+			if adj, ok := g.Edges[fromID]; ok {
+				if edge, ok := adj[toID]; ok && edge.DataFlow {
+					dfCount++
+				}
+			}
+		}
+		score := trace.ScorePatternWithDataFlow(p, dfCount)
+		if score >= threshold {
+			deterministic = append(deterministic, p)
+		} else {
+			llm = append(llm, p)
+		}
+	}
+	return
 }
