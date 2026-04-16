@@ -40,6 +40,59 @@ func (c *Canvas) Set(x, y int, ch rune, style lipgloss.Style) {
 	}
 }
 
+// SetEdge writes an edge character at (x,y), merging with existing edge characters
+// to produce proper intersection glyphs when edges cross. Skips cells occupied by
+// node content (letters, digits, punctuation) to avoid overwriting labels.
+func (c *Canvas) SetEdge(x, y int, ch rune, style lipgloss.Style) {
+	if x < 0 || x >= c.Width || y < 0 || y >= c.Height {
+		return
+	}
+	existing := c.Cells[y][x]
+	if isNodeContent(existing) {
+		return // don't overwrite node body
+	}
+	merged := mergeEdgeRune(existing, ch)
+	c.Cells[y][x] = merged
+	c.Styles[y][x] = style
+}
+
+// isNodeContent returns true if the rune belongs to a node's box or label,
+// not an edge character or empty space.
+func isNodeContent(r rune) bool {
+	switch r {
+	case ' ', '\u2500', '\u2502', '\u250c', '\u2510', '\u2514', '\u2518', '\u253c',
+		'\u25bc', '\u25c0':
+		return false
+	default:
+		return true
+	}
+}
+
+// mergeEdgeRune returns a crossing/intersection character when two edge segments overlap.
+func mergeEdgeRune(existing, new rune) rune {
+	if existing == ' ' || existing == new {
+		return new
+	}
+
+	isHoriz := func(r rune) bool { return r == '\u2500' }                                                             // ─
+	isVert := func(r rune) bool { return r == '\u2502' }                                                               // │
+	isCornerOrTee := func(r rune) bool { return r == '\u250c' || r == '\u2510' || r == '\u2514' || r == '\u2518' }     // ┌┐└┘
+	_ = isCornerOrTee
+
+	// Horizontal crossing vertical → cross ┼
+	if (isHoriz(existing) && isVert(new)) || (isVert(existing) && isHoriz(new)) {
+		return '\u253c' // ┼
+	}
+
+	// If new is an arrow, it takes priority
+	if new == '\u25bc' || new == '\u25c0' { // ▼ ◀
+		return new
+	}
+
+	// Default: new character wins
+	return new
+}
+
 // SetString writes a string starting at (x,y).
 func (c *Canvas) SetString(x, y int, s string, style lipgloss.Style) {
 	for i, ch := range s {
@@ -70,7 +123,12 @@ func RenderCanvas(layout *LayoutResult, g *trace.TraceGraph) *Canvas {
 		}
 	}
 
-	// Draw edges first (behind nodes).
+	// Draw nodes first so edges can route around them.
+	for _, ln := range layout.Nodes {
+		drawNode(c, ln, nodeBoxStyle)
+	}
+
+	// Draw edges on top, using SetEdge which skips node content cells.
 	for fromID, adj := range g.Edges {
 		for toID, edge := range adj {
 			if fromID == toID {
@@ -83,11 +141,6 @@ func RenderCanvas(layout *LayoutResult, g *trace.TraceGraph) *Canvas {
 			}
 			drawEdge(c, fromNode, toNode, edge, maxWeight)
 		}
-	}
-
-	// Draw nodes on top.
-	for _, ln := range layout.Nodes {
-		drawNode(c, ln, nodeBoxStyle)
 	}
 
 	return c
@@ -125,8 +178,14 @@ func drawNode(c *Canvas, ln *LayoutNode, style lipgloss.Style) {
 }
 
 // drawEdge draws an orthogonal edge between two nodes with heat coloring.
+// Data-flow edges are rendered with a bold/bright cyan style regardless of weight.
 func drawEdge(c *Canvas, from, to *LayoutNode, edge *trace.Edge, maxWeight int) {
-	style := edgeHeatStyle(edge.Weight, maxWeight)
+	var style lipgloss.Style
+	if edge.DataFlow {
+		style = dataFlowEdgeStyle
+	} else {
+		style = edgeHeatStyle(edge.Weight, maxWeight)
+	}
 
 	// Exit point: bottom-center of from node.
 	exitX := from.X + from.Width/2
@@ -148,20 +207,22 @@ func drawEdge(c *Canvas, from, to *LayoutNode, edge *trace.Edge, maxWeight int) 
 	if exitX == entryX {
 		// Straight vertical edge.
 		for y := exitY; y <= entryY; y++ {
-			c.Set(exitX, y, '\u2502', style)
+			c.SetEdge(exitX, y, '\u2502', style)
 		}
 		// Arrow at entry.
 		c.Set(entryX, entryY, '\u25bc', style)
 		// Weight label to the right of midpoint.
-		midY := (exitY + entryY) / 2
-		c.SetString(exitX+2, midY, weightLabel, style)
+		if edge.Weight > 1 {
+			midY := (exitY + entryY) / 2
+			c.SetString(exitX+2, midY, weightLabel, style)
+		}
 	} else {
 		// Orthogonal: down, across, down.
 		midY := (exitY + entryY) / 2
 
 		// Vertical segment from exit down to midY.
 		for y := exitY; y < midY; y++ {
-			c.Set(exitX, y, '\u2502', style)
+			c.SetEdge(exitX, y, '\u2502', style)
 		}
 
 		// Horizontal segment at midY.
@@ -172,36 +233,38 @@ func drawEdge(c *Canvas, from, to *LayoutNode, edge *trace.Edge, maxWeight int) 
 
 		// Corner at (exitX, midY).
 		if entryX > exitX {
-			c.Set(exitX, midY, '\u2514', style) // └
+			c.SetEdge(exitX, midY, '\u2514', style) // └
 		} else {
-			c.Set(exitX, midY, '\u2518', style) // ┘
+			c.SetEdge(exitX, midY, '\u2518', style) // ┘
 		}
 
 		for x := startX + 1; x < endX; x++ {
-			c.Set(x, midY, '\u2500', style)
+			c.SetEdge(x, midY, '\u2500', style)
 		}
 
 		// Corner at (entryX, midY).
 		if entryX > exitX {
-			c.Set(entryX, midY, '\u2510', style) // ┐
+			c.SetEdge(entryX, midY, '\u2510', style) // ┐
 		} else {
-			c.Set(entryX, midY, '\u250c', style) // ┌
+			c.SetEdge(entryX, midY, '\u250c', style) // ┌
 		}
 
 		// Vertical segment from midY down to entry.
 		for y := midY + 1; y <= entryY; y++ {
-			c.Set(entryX, y, '\u2502', style)
+			c.SetEdge(entryX, y, '\u2502', style)
 		}
 
 		// Arrow at entry.
 		c.Set(entryX, entryY, '\u25bc', style)
 
 		// Weight label near horizontal segment.
-		labelX := (startX + endX) / 2
-		if labelX+len(weightLabel) >= endX {
-			labelX = startX + 1
+		if edge.Weight > 1 {
+			labelX := (startX + endX) / 2
+			if labelX+len(weightLabel) >= endX {
+				labelX = startX + 1
+			}
+			c.SetString(labelX, midY-1, weightLabel, style)
 		}
-		c.SetString(labelX, midY-1, weightLabel, style)
 	}
 }
 
@@ -224,10 +287,10 @@ func drawBackEdge(c *Canvas, from, to *LayoutNode, edge *trace.Edge, style lipgl
 
 	// Horizontal from "from" right side to rightX.
 	for x := from.X + from.Width; x <= rightX; x++ {
-		c.Set(x, fromY, '\u2500', style)
+		c.SetEdge(x, fromY, '\u2500', style)
 	}
 	// Corner up.
-	c.Set(rightX, fromY, '\u2510', style)
+	c.SetEdge(rightX, fromY, '\u2510', style)
 
 	// Vertical up.
 	startY, endY := toY, fromY
@@ -235,21 +298,23 @@ func drawBackEdge(c *Canvas, from, to *LayoutNode, edge *trace.Edge, style lipgl
 		startY, endY = endY, startY
 	}
 	for y := startY + 1; y < endY; y++ {
-		c.Set(rightX, y, '\u2502', style)
+		c.SetEdge(rightX, y, '\u2502', style)
 	}
 	// Corner left.
-	c.Set(rightX, toY, '\u2518', style)
+	c.SetEdge(rightX, toY, '\u2518', style)
 
 	// Horizontal from to right side to rightX.
 	for x := to.X + to.Width; x < rightX; x++ {
-		c.Set(x, toY, '\u2500', style)
+		c.SetEdge(x, toY, '\u2500', style)
 	}
 	// Arrow at to node.
 	c.Set(to.X+to.Width, toY, '\u25c0', style)
 
 	// Weight label.
-	midY := (fromY + toY) / 2
-	c.SetString(rightX+1, midY, weightLabel, style)
+	if edge.Weight > 1 {
+		midY := (fromY + toY) / 2
+		c.SetString(rightX+1, midY, weightLabel, style)
+	}
 }
 
 // edgeHeatStyle returns the lipgloss style for an edge based on its weight.

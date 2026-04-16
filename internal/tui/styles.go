@@ -52,6 +52,10 @@ var (
 				Bold(true).
 				Foreground(lipgloss.Color("196"))
 
+	dataFlowEdgeStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("14")) // bright cyan
+
 	statusBarStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("252")).
 			Background(lipgloss.Color("236"))
