@@ -91,6 +91,7 @@ var traceCmd = &cobra.Command{
 		if traceMinFreq > 0 {
 			minFreq = traceMinFreq
 		}
+		trace.DetectDataFlowEdges(g, events, 5)
 		hotPaths := trace.FindHotPaths(g, minFreq, traceMinLength, 20)
 		fmt.Printf("%d found\n", len(hotPaths))
 
@@ -115,9 +116,21 @@ var traceCmd = &cobra.Command{
 			return nil
 		}
 
-		// Parameterize and annotate
-		patterns := trace.Parameterize(hotPaths, events, g)
+		// Rank first, then cap to a display limit before the expensive parameterize step.
 		ranked := trace.RankHotPaths(hotPaths)
+		const maxDisplay = 100
+		if len(ranked) > maxDisplay {
+			ranked = ranked[:maxDisplay]
+		}
+		// Rebuild hotPaths from the ranked (capped) list.
+		hotPaths = make([]trace.HotPath, len(ranked))
+		for i, r := range ranked {
+			hotPaths[i] = r.HotPath
+		}
+
+		fmt.Print("[AJ] Parameterizing top paths... ")
+		patterns := trace.Parameterize(hotPaths, events, g)
+		fmt.Printf("%d done\n", len(patterns))
 		annotated := make([]tui.AnnotatedPath, len(hotPaths))
 		for i, hp := range hotPaths {
 			labels := make([]string, len(hp.NodeIDs))
@@ -166,9 +179,7 @@ var traceCmd = &cobra.Command{
 			savings := len(patterns[i].Steps) * 200 // rough estimate
 
 			var compilationValue int
-			if i < len(ranked) {
-				compilationValue = ranked[i].CompilationValue
-			}
+			compilationValue = ranked[i].CompilationValue
 
 			annotated[i] = tui.AnnotatedPath{
 				Path:             hp,
