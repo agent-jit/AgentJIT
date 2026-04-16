@@ -8,6 +8,7 @@ import (
 
 	"github.com/agent-jit/agentjit/internal/config"
 	"github.com/agent-jit/agentjit/internal/hooks"
+	"github.com/agent-jit/agentjit/internal/ir"
 	"github.com/agent-jit/agentjit/internal/skills"
 	"github.com/spf13/cobra"
 )
@@ -33,6 +34,18 @@ var initCmd = &cobra.Command{
 		fmt.Printf("   ✓ %s\n", paths.Root)
 		fmt.Printf("   ✓ %s\n", paths.Logs)
 		fmt.Printf("   ✓ %s\n", paths.Skills)
+
+		// Install seed IR catalog if not already present
+		if _, err := os.Stat(paths.IRCatalog); os.IsNotExist(err) {
+			cat, err := ir.DefaultCatalog()
+			if err != nil {
+				return fmt.Errorf("loading seed IR catalog: %w", err)
+			}
+			if err := ir.SaveCatalog(paths.IRCatalog, cat); err != nil {
+				return fmt.Errorf("writing IR catalog: %w", err)
+			}
+			fmt.Printf("[AJ] Installed IR catalog: %s\n", paths.IRCatalog)
+		}
 
 		// 2. Write default config (if not exists)
 		fmt.Println()
