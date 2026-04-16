@@ -29,13 +29,17 @@ func TestScorePattern_NonBashPenalty(t *testing.T) {
 }
 
 func TestScorePattern_DataFlowBonus(t *testing.T) {
+	// Use a mixed-tool pattern so base score is < 1.0 and bonus is observable.
 	p := Pattern{
 		Steps: []PatternStep{
 			{ToolName: "Bash", Template: "kubectl get pods"},
-			{ToolName: "Bash", Template: "kubectl logs $POD"},
+			{ToolName: "Read", Template: "read file"},
 		},
 	}
 	baseScore := ScorePattern(p)
+	if baseScore >= 1.0 {
+		t.Fatalf("test fixture should score below 1.0, got %f", baseScore)
+	}
 
 	boostedScore := ScorePatternWithDataFlow(p, 2)
 	if boostedScore <= baseScore {

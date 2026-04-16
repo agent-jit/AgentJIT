@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/agent-jit/agentjit/internal/compile"
 	"github.com/agent-jit/agentjit/internal/config"
@@ -12,6 +13,10 @@ import (
 )
 
 var traceAll bool
+var traceTools []string
+var traceMinWeight int
+var traceMinLength int
+var traceMinFreq int
 
 // loadTraceData loads events and builds a trace graph. Shared by trace subcommands.
 func loadTraceData(all bool) ([]ingest.Event, *trace.TraceGraph, error) {
@@ -75,8 +80,18 @@ var traceCmd = &cobra.Command{
 			return nil
 		}
 
+		g = filterGraph(g, traceTools, 0)
+		if len(g.Nodes) == 0 {
+			fmt.Println("[AJ] No nodes match the filter criteria.")
+			return nil
+		}
+
 		fmt.Print("[AJ] Detecting hot paths... ")
-		hotPaths := trace.FindHotPaths(g, cfg.Compile.MinPatternFrequency, 2, 20)
+		minFreq := cfg.Compile.MinPatternFrequency
+		if traceMinFreq > 0 {
+			minFreq = traceMinFreq
+		}
+		hotPaths := trace.FindHotPaths(g, minFreq, traceMinLength, 20)
 		fmt.Printf("%d found\n", len(hotPaths))
 
 		if len(hotPaths) == 0 {
@@ -84,8 +99,25 @@ var traceCmd = &cobra.Command{
 			return nil
 		}
 
+		// Filter hot paths by min-weight (minimum frequency).
+		if traceMinWeight > 1 {
+			filtered := hotPaths[:0]
+			for _, hp := range hotPaths {
+				if hp.Frequency >= traceMinWeight {
+					filtered = append(filtered, hp)
+				}
+			}
+			hotPaths = filtered
+		}
+
+		if len(hotPaths) == 0 {
+			fmt.Println("[AJ] No hot paths meet the minimum weight threshold.")
+			return nil
+		}
+
 		// Parameterize and annotate
 		patterns := trace.Parameterize(hotPaths, events, g)
+		ranked := trace.RankHotPaths(hotPaths)
 		annotated := make([]tui.AnnotatedPath, len(hotPaths))
 		for i, hp := range hotPaths {
 			labels := make([]string, len(hp.NodeIDs))
@@ -112,17 +144,47 @@ var traceCmd = &cobra.Command{
 				pattern = &p
 			}
 
-			conf := trace.ScorePattern(patterns[i])
+			// Count data-flow edges and build annotations
+			dfCount := 0
+			var dfAnnotations []tui.DataFlowAnnotation
+			for j := 0; j < len(hp.NodeIDs)-1; j++ {
+				fromID := hp.NodeIDs[j]
+				toID := hp.NodeIDs[j+1]
+				if adj, ok := g.Edges[fromID]; ok {
+					if edge, ok := adj[toID]; ok && edge.DataFlow {
+						dfCount++
+						dfAnnotations = append(dfAnnotations, tui.DataFlowAnnotation{
+							FromStep:   j,
+							ToStep:     j + 1,
+							FlowTokens: edge.FlowTokens,
+						})
+					}
+				}
+			}
+
+			conf := trace.ScorePatternWithDataFlow(patterns[i], dfCount)
 			savings := len(patterns[i].Steps) * 200 // rough estimate
 
+			var compilationValue int
+			if i < len(ranked) {
+				compilationValue = ranked[i].CompilationValue
+			}
+
 			annotated[i] = tui.AnnotatedPath{
-				Path:       hp,
-				Pattern:    pattern,
-				Labels:     labels,
-				Confidence: conf,
-				Savings:    savings,
+				Path:             hp,
+				Pattern:          pattern,
+				Labels:           labels,
+				Confidence:       conf,
+				Savings:          savings,
+				CompilationValue: compilationValue,
+				DataFlowEdges:    dfAnnotations,
 			}
 		}
+
+		// Sort by score descending.
+		sort.Slice(annotated, func(i, j int) bool {
+			return annotated[i].Path.Score > annotated[j].Path.Score
+		})
 
 		return tui.Run(annotated, g)
 	},
@@ -138,5 +200,9 @@ func countEdges(g *trace.TraceGraph) int {
 
 func init() {
 	traceCmd.Flags().BoolVar(&traceAll, "all", false, "Analyze all events under retention (ignore compile marker)")
+	traceCmd.Flags().StringSliceVar(&traceTools, "tool", nil, "Filter by tool name (e.g. --tool Bash,Read)")
+	traceCmd.Flags().IntVar(&traceMinWeight, "min-weight", 1, "Minimum edge weight to include")
+	traceCmd.Flags().IntVar(&traceMinLength, "min-length", 2, "Minimum path length (number of nodes)")
+	traceCmd.Flags().IntVar(&traceMinFreq, "min-freq", 0, "Minimum session frequency (default: from config, usually 3)")
 	rootCmd.AddCommand(traceCmd)
 }

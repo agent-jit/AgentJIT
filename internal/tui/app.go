@@ -10,11 +10,20 @@ import (
 
 // AnnotatedPath is a HotPath enriched with display metadata.
 type AnnotatedPath struct {
-	Path       trace.HotPath
-	Pattern    *trace.Pattern // parameterized version (nil if not yet parameterized)
-	Labels     []string       // human-readable step labels
-	Confidence float64
-	Savings    int // estimated tokens saved per invocation
+	Path             trace.HotPath
+	Pattern          *trace.Pattern // parameterized version (nil if not yet parameterized)
+	Labels           []string       // human-readable step labels
+	Confidence       float64
+	Savings          int // estimated tokens saved per invocation
+	CompilationValue int
+	DataFlowEdges    []DataFlowAnnotation
+}
+
+// DataFlowAnnotation describes a data-flow relationship between two steps.
+type DataFlowAnnotation struct {
+	FromStep   int
+	ToStep     int
+	FlowTokens []string
 }
 
 // view is the current TUI view mode.
@@ -163,7 +172,8 @@ func (m Model) viewList() string {
 		}
 
 		label := strings.Join(ap.Labels, " \u2192 ")
-		freq := frequencyStyle.Render(fmt.Sprintf("(%dx)", ap.Path.Frequency))
+		valueStr := formatTokenCount(ap.CompilationValue)
+		freq := frequencyStyle.Render(fmt.Sprintf("(%dx, %d sessions, %s)", ap.Path.Score, ap.Path.Frequency, valueStr))
 
 		b.WriteString(style.Render(cursor + label))
 		b.WriteString(" ")
@@ -197,10 +207,16 @@ func (m Model) viewDetail() string {
 	b.WriteString("\n")
 	for i, label := range ap.Labels {
 		b.WriteString(fmt.Sprintf("  %d. %s\n", i+1, label))
+		for _, df := range ap.DataFlowEdges {
+			if df.FromStep == i {
+				b.WriteString(fmt.Sprintf("     \u2193 data-flow: [%s]\n", strings.Join(df.FlowTokens, ", ")))
+			}
+		}
 	}
 
 	b.WriteString("\n")
-	b.WriteString(fmt.Sprintf("Frequency:    %s\n", frequencyStyle.Render(fmt.Sprintf("%d sessions", ap.Path.Frequency))))
+	b.WriteString(fmt.Sprintf("Score:        %s\n", frequencyStyle.Render(fmt.Sprintf("%dx total", ap.Path.Score))))
+	b.WriteString(fmt.Sprintf("Sessions:     %s\n", frequencyStyle.Render(fmt.Sprintf("%d", ap.Path.Frequency))))
 
 	confStyle := confidenceHighStyle
 	if ap.Confidence < 0.6 {
@@ -225,6 +241,14 @@ func (m Model) viewDetail() string {
 	b.WriteString(helpStyle.Render("[esc] back  [q] quit"))
 
 	return b.String()
+}
+
+// formatTokenCount formats a token count with K suffix when >= 1000.
+func formatTokenCount(tokens int) string {
+	if tokens >= 1000 {
+		return fmt.Sprintf("%dK tokens", tokens/1000)
+	}
+	return fmt.Sprintf("%d tokens", tokens)
 }
 
 // Run starts the TUI program.
