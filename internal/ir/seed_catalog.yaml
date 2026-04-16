@@ -1,0 +1,121 @@
+version: 1
+domains:
+  k8s:
+    K8S_GET_PODS:
+      verbs: ["kubectl get pods", "kubectl get po"]
+      params: [NAMESPACE, LABELS]
+    K8S_LOG:
+      verbs: ["kubectl logs", "stern"]
+      params: [POD, NAMESPACE, CONTAINER]
+    K8S_DESCRIBE:
+      verbs: ["kubectl describe"]
+      params: [RESOURCE_TYPE, NAME, NAMESPACE]
+    K8S_APPLY:
+      verbs: ["kubectl apply"]
+      params: [FILE, NAMESPACE]
+    K8S_DELETE:
+      verbs: ["kubectl delete"]
+      params: [RESOURCE_TYPE, NAME, NAMESPACE]
+    K8S_EXEC:
+      verbs: ["kubectl exec"]
+      params: [POD, NAMESPACE, COMMAND]
+  git:
+    GIT_COMMIT:
+      verbs: ["git commit"]
+      params: [MESSAGE, FLAGS]
+    GIT_PUSH:
+      verbs: ["git push"]
+      params: [REMOTE, BRANCH]
+    GIT_PULL:
+      verbs: ["git pull"]
+      params: [REMOTE, BRANCH]
+    GIT_DIFF:
+      verbs: ["git diff"]
+      params: [REF, PATH]
+    GIT_LOG:
+      verbs: ["git log"]
+      params: [REF, FORMAT, COUNT]
+    GIT_CHECKOUT:
+      verbs: ["git checkout", "git switch"]
+      params: [BRANCH]
+    GIT_STATUS:
+      verbs: ["git status"]
+      params: []
+    GIT_ADD:
+      verbs: ["git add"]
+      params: [PATH]
+  az:
+    AZ_PR_CREATE:
+      verbs: ["az repos pr create"]
+      params: [ORG, PROJECT, TITLE, SOURCE_BRANCH, TARGET_BRANCH]
+    AZ_PR_LIST:
+      verbs: ["az repos pr list"]
+      params: [ORG, PROJECT, STATUS]
+    AZ_LOGIN:
+      verbs: ["az login", "az account show"]
+      params: []
+    AZ_ACR_LOGIN:
+      verbs: ["az acr login"]
+      params: [REGISTRY]
+    AZ_AKS_GET_CREDENTIALS:
+      verbs: ["az aks get-credentials"]
+      params: [RESOURCE_GROUP, CLUSTER_NAME]
+  docker:
+    DOCKER_BUILD:
+      verbs: ["docker build"]
+      params: [TAG, CONTEXT, DOCKERFILE]
+    DOCKER_RUN:
+      verbs: ["docker run"]
+      params: [IMAGE, PORTS, VOLUMES, COMMAND]
+    DOCKER_PUSH:
+      verbs: ["docker push"]
+      params: [IMAGE]
+    DOCKER_COMPOSE_UP:
+      verbs: ["docker compose up", "docker-compose up"]
+      params: [SERVICE, FLAGS]
+  fs:
+    FS_READ:
+      verbs: ["cat", "head", "tail", "less", "bat"]
+      params: [PATH]
+    FS_WRITE:
+      verbs: ["tee", "cp", "mv"]
+      params: [SRC, DST]
+    FS_LIST:
+      verbs: ["ls", "find", "fd"]
+      params: [PATH, PATTERN]
+    FS_SEARCH:
+      verbs: ["grep", "rg", "ag"]
+      params: [PATTERN, PATH]
+    FS_DELETE:
+      verbs: ["rm"]
+      params: [PATH]
+  npm:
+    NPM_INSTALL:
+      verbs: ["npm install", "npm i", "yarn add", "pnpm add"]
+      params: [PACKAGE]
+    NPM_RUN:
+      verbs: ["npm run", "yarn", "pnpm"]
+      params: [SCRIPT]
+    NPM_TEST:
+      verbs: ["npm test", "yarn test", "pnpm test"]
+      params: [FILTER]
+  python:
+    PY_RUN:
+      verbs: ["python", "python3"]
+      params: [SCRIPT, ARGS]
+    PY_PIP_INSTALL:
+      verbs: ["pip install", "pip3 install"]
+      params: [PACKAGE]
+    PY_PYTEST:
+      verbs: ["pytest", "python -m pytest"]
+      params: [PATH, FLAGS]
+  go:
+    GO_BUILD:
+      verbs: ["go build"]
+      params: [PACKAGE, OUTPUT]
+    GO_TEST:
+      verbs: ["go test"]
+      params: [PACKAGE, FLAGS]
+    GO_RUN:
+      verbs: ["go run"]
+      params: [FILE, ARGS]

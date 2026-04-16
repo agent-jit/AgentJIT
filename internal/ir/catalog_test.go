@@ -71,3 +71,32 @@ func TestCatalog_AllEntries(t *testing.T) {
 		t.Fatalf("got %d entries, want 2", len(entries))
 	}
 }
+
+func TestDefaultCatalog(t *testing.T) {
+	cat, err := DefaultCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cat.Version != 1 {
+		t.Errorf("version = %d, want 1", cat.Version)
+	}
+	if len(cat.Domains) < 5 {
+		t.Errorf("got %d domains, want at least 5", len(cat.Domains))
+	}
+	entries := cat.AllEntries()
+	if len(entries) < 30 {
+		t.Errorf("got %d entries, want at least 30", len(entries))
+	}
+	found := false
+	for _, e := range entries {
+		if e.CapabilityID == "K8S_LOG" {
+			found = true
+			if len(e.Verbs) < 2 {
+				t.Errorf("K8S_LOG should have at least 2 verbs, got %d", len(e.Verbs))
+			}
+		}
+	}
+	if !found {
+		t.Error("K8S_LOG not found in default catalog")
+	}
+}
