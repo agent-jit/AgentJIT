@@ -17,6 +17,7 @@ type Paths struct {
 	CompileMarker string // ~/.aj/last_compile_marker
 	BootstrapProcessed string // ~/.aj/bootstrap_processed.json
 	Stats          string // ~/.aj/stats.jsonl
+	IRCatalog      string // path to IR catalog YAML
 }
 
 // DefaultPaths returns Paths rooted at ~/.aj.
@@ -43,6 +44,7 @@ func PathsFromRoot(root string) Paths {
 		CompileMarker:      filepath.Join(root, "last_compile_marker"),
 		BootstrapProcessed: filepath.Join(root, "bootstrap_processed.json"),
 		Stats:              filepath.Join(root, "stats.jsonl"),
+		IRCatalog:          filepath.Join(root, "ir_catalog.yaml"),
 	}
 }
 

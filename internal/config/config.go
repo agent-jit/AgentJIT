@@ -25,6 +25,7 @@ type CompileConfig struct {
 	MinTokenSavings        int   `json:"min_token_savings"`
 	DeprecateAfterSessions int   `json:"deprecate_after_sessions"`
 	DeterministicThreshold float64 `json:"deterministic_threshold"`
+	MaxPatternsPerCompile   int     `json:"max_patterns_per_compile"`
 	Platform               string `json:"platform,omitempty"` // "windows", "linux", "darwin" — auto-detected if empty
 }
 
@@ -66,6 +67,7 @@ func DefaultConfig() Config {
 			MinTokenSavings:        500,
 			DeprecateAfterSessions: 20,
 			DeterministicThreshold: 0.6,
+			MaxPatternsPerCompile:   10,
 		},
 		Scope: ScopeConfig{
 			GlobalCLITools: []string{
