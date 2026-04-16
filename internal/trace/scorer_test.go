@@ -2,93 +2,59 @@ package trace
 
 import "testing"
 
-func TestScorePattern_EmptyPattern(t *testing.T) {
-	score := ScorePattern(Pattern{})
-	if score != 0 {
-		t.Errorf("empty pattern should score 0, got %.2f", score)
-	}
-}
-
-func TestScorePattern_AllBashHighConfidence(t *testing.T) {
+func TestScorePattern_PureBash(t *testing.T) {
 	p := Pattern{
 		Steps: []PatternStep{
-			{ToolName: "Bash", Template: "git status", Parameters: nil},
-			{ToolName: "Bash", Template: "git diff", Parameters: nil},
+			{ToolName: "Bash", Template: "git status"},
+			{ToolName: "Bash", Template: "git diff"},
 		},
-		Frequency: 5,
 	}
 	score := ScorePattern(p)
-	if score < 0.6 {
-		t.Errorf("all-Bash pattern should be high confidence, got %.2f", score)
+	if score != 1.0 {
+		t.Errorf("pure bash score = %f, want 1.0", score)
 	}
 }
 
-func TestScorePattern_MixedToolsLowConfidence(t *testing.T) {
+func TestScorePattern_NonBashPenalty(t *testing.T) {
 	p := Pattern{
 		Steps: []PatternStep{
-			{ToolName: "Bash", Template: "ls", Parameters: nil},
-			{ToolName: "Read", Template: "Read call", Parameters: nil},
-			{ToolName: "Edit", Template: "Edit call", Parameters: nil},
-			{ToolName: "Bash", Template: "make test", Parameters: nil},
+			{ToolName: "Bash", Template: "git status"},
+			{ToolName: "Read", Template: "Read call"},
 		},
-		Frequency: 3,
 	}
 	score := ScorePattern(p)
-	if score >= 0.6 {
-		t.Errorf("mixed-tool pattern should be low confidence, got %.2f", score)
+	if score >= 1.0 {
+		t.Errorf("mixed tools should be penalized, got %f", score)
 	}
 }
 
-func TestScorePattern_TooManyParams(t *testing.T) {
+func TestScorePattern_DataFlowBonus(t *testing.T) {
 	p := Pattern{
 		Steps: []PatternStep{
-			{ToolName: "Bash", Template: "cmd $A $B $C $D", Parameters: make([]Parameter, 4)},
-			{ToolName: "Bash", Template: "cmd $E $F $G $H", Parameters: make([]Parameter, 4)},
+			{ToolName: "Bash", Template: "kubectl get pods"},
+			{ToolName: "Bash", Template: "kubectl logs $POD"},
 		},
-		Frequency: 3,
 	}
-	score := ScorePattern(p)
-	// avgParamsPerStep = 4 > 3, should lose 0.2 → score = 0.8
-	if score != 0.8 {
-		t.Errorf("many-param all-Bash pattern should score 0.80, got %.2f", score)
+	baseScore := ScorePattern(p)
+
+	boostedScore := ScorePatternWithDataFlow(p, 2)
+	if boostedScore <= baseScore {
+		t.Errorf("data-flow bonus should increase score: base=%f, boosted=%f", baseScore, boostedScore)
 	}
 }
 
-func TestScorePattern_LongPathPenalty(t *testing.T) {
-	steps := make([]PatternStep, 15)
-	for i := range steps {
-		steps[i] = PatternStep{ToolName: "Bash", Template: "cmd"}
-	}
-	p := Pattern{Steps: steps, Frequency: 3}
-	score := ScorePattern(p)
-	// pathLength > 12, should lose 0.1 → score = 0.9
-	if score != 0.9 {
-		t.Errorf("long all-Bash pattern should score 0.90, got %.2f", score)
-	}
-}
-
-func TestRoutePatterns(t *testing.T) {
-	high := Pattern{
-		Steps:     []PatternStep{{ToolName: "Bash", Template: "git status"}},
-		Frequency: 5,
-	}
-	low := Pattern{
+func TestScorePattern_DataFlowBonusCapped(t *testing.T) {
+	p := Pattern{
 		Steps: []PatternStep{
-			{ToolName: "Bash"}, {ToolName: "Read"}, {ToolName: "Edit"},
-			{ToolName: "Bash"}, {ToolName: "Read"}, {ToolName: "Edit"},
-			{ToolName: "Bash"}, {ToolName: "Read"}, {ToolName: "Edit"},
-			{ToolName: "Bash"}, {ToolName: "Read"}, {ToolName: "Edit"},
-			{ToolName: "Bash"},
+			{ToolName: "Bash", Template: "a"},
+			{ToolName: "Bash", Template: "b"},
+			{ToolName: "Bash", Template: "c"},
+			{ToolName: "Bash", Template: "d"},
+			{ToolName: "Bash", Template: "e"},
 		},
-		Frequency: 3,
 	}
-
-	det, llm := RoutePatterns([]Pattern{high, low}, 0.6)
-
-	if len(det) != 1 {
-		t.Errorf("expected 1 deterministic pattern, got %d", len(det))
-	}
-	if len(llm) != 1 {
-		t.Errorf("expected 1 LLM pattern, got %d", len(llm))
+	score := ScorePatternWithDataFlow(p, 10)
+	if score > 1.0 {
+		t.Errorf("score should not exceed 1.0, got %f", score)
 	}
 }

@@ -46,6 +46,21 @@ func ScorePattern(p Pattern) float64 {
 	return score
 }
 
+// ScorePatternWithDataFlow is like ScorePattern but adds a bonus for data-flow edges.
+// Each data-flow edge adds +0.1, capped at +0.3.
+func ScorePatternWithDataFlow(p Pattern, dataFlowEdgeCount int) float64 {
+	score := ScorePattern(p)
+	bonus := float64(dataFlowEdgeCount) * 0.1
+	if bonus > 0.3 {
+		bonus = 0.3
+	}
+	score += bonus
+	if score > 1.0 {
+		score = 1.0
+	}
+	return score
+}
+
 // RoutePatterns splits patterns into deterministic and LLM batches
 // based on confidence scoring.
 func RoutePatterns(patterns []Pattern, threshold float64) (deterministic, llm []Pattern) {
