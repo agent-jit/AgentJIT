@@ -46,6 +46,8 @@ type CompileSessionData struct {
 type SkillExecutionData struct {
 	SkillName            string `json:"skill_name"`
 	Success              bool   `json:"success"`
+	FailureCategory      string `json:"failure_category,omitempty"`
+	FailureReason        string `json:"failure_reason,omitempty"`
 	EstimatedTokensSaved int    `json:"estimated_tokens_saved"`
 	SessionID            string `json:"session_id,omitempty"`
 }
@@ -129,14 +131,16 @@ func ReadAllRecords(filePath string) ([]Record, error) {
 
 // Aggregated holds aggregated stats for display.
 type Aggregated struct {
-	CompileSessions    int     `json:"compile_sessions"`
-	CompileInputTokens int     `json:"compile_input_tokens"`
-	CompileOutputTokens int    `json:"compile_output_tokens"`
-	CompileTotalCost   float64 `json:"compile_total_cost_usd"`
-	SkillExecutions    int     `json:"skill_executions"`
-	SkillSuccesses     int     `json:"skill_successes"`
-	SkillFailures      int     `json:"skill_failures"`
-	EstTokensSaved     int     `json:"estimated_tokens_saved"`
+	CompileSessions     int     `json:"compile_sessions"`
+	CompileInputTokens  int     `json:"compile_input_tokens"`
+	CompileOutputTokens int     `json:"compile_output_tokens"`
+	CompileTotalCost    float64 `json:"compile_total_cost_usd"`
+	SkillExecutions     int     `json:"skill_executions"`
+	SkillSuccesses      int     `json:"skill_successes"`
+	SkillFailures       int     `json:"skill_failures"`
+	SkillScriptErrors   int     `json:"skill_script_errors"`
+	SkillTargetFailures int     `json:"skill_target_failures"`
+	EstTokensSaved      int     `json:"estimated_tokens_saved"`
 }
 
 // Aggregate computes aggregated stats from records.
@@ -160,6 +164,12 @@ func Aggregate(records []Record) Aggregated {
 					agg.SkillSuccesses++
 				} else {
 					agg.SkillFailures++
+					switch d.FailureCategory {
+					case "script_error":
+						agg.SkillScriptErrors++
+					case "target_failure":
+						agg.SkillTargetFailures++
+					}
 				}
 				agg.EstTokensSaved += d.EstimatedTokensSaved
 			}
@@ -236,6 +246,10 @@ func PrintStats(statsPath string, nextInfo *NextCompileInfo, asJSON bool) error 
 	fmt.Printf("  Total:             %d\n", agg.SkillExecutions)
 	fmt.Printf("  Successful:        %d (%.1f%%)\n", agg.SkillSuccesses, successRate)
 	fmt.Printf("  Failed:            %d\n", agg.SkillFailures)
+	if agg.SkillFailures > 0 {
+		fmt.Printf("    Script errors:   %d\n", agg.SkillScriptErrors)
+		fmt.Printf("    Target failures: %d\n", agg.SkillTargetFailures)
+	}
 	fmt.Println()
 	fmt.Println("Token Savings")
 	fmt.Printf("  Est. tokens saved: %d\n", agg.EstTokensSaved)

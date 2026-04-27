@@ -51,9 +51,11 @@ var statsResetCmd = &cobra.Command{
 }
 
 var (
-	recordSkill   string
-	recordSuccess bool
-	recordSession string
+	recordSkill           string
+	recordSuccess         bool
+	recordSession         string
+	recordFailureCategory string
+	recordFailureReason   string
 )
 
 var statsRecordCmd = &cobra.Command{
@@ -87,6 +89,8 @@ var statsRecordCmd = &cobra.Command{
 		return stats.AppendSkillExecution(paths.Stats, stats.SkillExecutionData{
 			SkillName:            recordSkill,
 			Success:              recordSuccess,
+			FailureCategory:      recordFailureCategory,
+			FailureReason:        recordFailureReason,
 			EstimatedTokensSaved: tokensSaved,
 			SessionID:            recordSession,
 		})
@@ -98,6 +102,8 @@ func init() {
 	statsRecordCmd.Flags().StringVar(&recordSkill, "skill", "", "Skill name to record")
 	statsRecordCmd.Flags().BoolVar(&recordSuccess, "success", true, "Whether execution succeeded")
 	statsRecordCmd.Flags().StringVar(&recordSession, "session", "", "Claude session ID")
+	statsRecordCmd.Flags().StringVar(&recordFailureCategory, "failure-category", "", "Failure category (script_error or target_failure)")
+	statsRecordCmd.Flags().StringVar(&recordFailureReason, "failure-reason", "", "Failure reason description")
 	statsCmd.AddCommand(statsResetCmd, statsRecordCmd)
 	rootCmd.AddCommand(statsCmd)
 }

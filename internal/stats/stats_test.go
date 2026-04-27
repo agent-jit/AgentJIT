@@ -110,7 +110,8 @@ func TestAggregate(t *testing.T) {
 	compile2, _ := json.Marshal(CompileSessionData{InputTokens: 2000, OutputTokens: 400, TotalCostUSD: 0.30})
 	skill1, _ := json.Marshal(SkillExecutionData{Success: true, EstimatedTokensSaved: 500})
 	skill2, _ := json.Marshal(SkillExecutionData{Success: true, EstimatedTokensSaved: 300})
-	skill3, _ := json.Marshal(SkillExecutionData{Success: false, EstimatedTokensSaved: 0})
+	skill3, _ := json.Marshal(SkillExecutionData{Success: false, FailureCategory: "script_error", FailureReason: "file not found"})
+	skill4, _ := json.Marshal(SkillExecutionData{Success: false, FailureCategory: "target_failure", FailureReason: "exit code 1"})
 
 	records := []Record{
 		{Type: RecordCompileSession, Data: compile1},
@@ -118,6 +119,7 @@ func TestAggregate(t *testing.T) {
 		{Type: RecordSkillExecution, Data: skill1},
 		{Type: RecordSkillExecution, Data: skill2},
 		{Type: RecordSkillExecution, Data: skill3},
+		{Type: RecordSkillExecution, Data: skill4},
 	}
 
 	agg := Aggregate(records)
@@ -131,14 +133,20 @@ func TestAggregate(t *testing.T) {
 	if agg.CompileOutputTokens != 600 {
 		t.Errorf("CompileOutputTokens: expected 600, got %d", agg.CompileOutputTokens)
 	}
-	if agg.SkillExecutions != 3 {
-		t.Errorf("SkillExecutions: expected 3, got %d", agg.SkillExecutions)
+	if agg.SkillExecutions != 4 {
+		t.Errorf("SkillExecutions: expected 4, got %d", agg.SkillExecutions)
 	}
 	if agg.SkillSuccesses != 2 {
 		t.Errorf("SkillSuccesses: expected 2, got %d", agg.SkillSuccesses)
 	}
-	if agg.SkillFailures != 1 {
-		t.Errorf("SkillFailures: expected 1, got %d", agg.SkillFailures)
+	if agg.SkillFailures != 2 {
+		t.Errorf("SkillFailures: expected 2, got %d", agg.SkillFailures)
+	}
+	if agg.SkillScriptErrors != 1 {
+		t.Errorf("SkillScriptErrors: expected 1, got %d", agg.SkillScriptErrors)
+	}
+	if agg.SkillTargetFailures != 1 {
+		t.Errorf("SkillTargetFailures: expected 1, got %d", agg.SkillTargetFailures)
 	}
 	if agg.EstTokensSaved != 800 {
 		t.Errorf("EstTokensSaved: expected 800, got %d", agg.EstTokensSaved)

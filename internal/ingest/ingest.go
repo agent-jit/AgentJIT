@@ -39,7 +39,7 @@ func IngestFromReader(r io.Reader, paths config.Paths, cfg config.Config) error 
 	}
 
 	// Track AJ skill executions for stats
-	stats.CheckSkillExecution(event.ToolName, event.EventType, event.SessionID, event.ToolInput, paths)
+	stats.CheckSkillExecution(event.ToolName, event.EventType, event.SessionID, event.ToolInput, event.Error, event.ExitCode, paths)
 	return nil
 }
 

@@ -265,7 +265,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 
 		// Track AJ skill executions for stats
-		stats.CheckSkillExecution(event.ToolName, event.EventType, event.SessionID, event.ToolInput, s.paths)
+		stats.CheckSkillExecution(event.ToolName, event.EventType, event.SessionID, event.ToolInput, event.Error, event.ExitCode, s.paths)
 
 		s.eventCount.Add(1)
 		s.compileEventCount.Add(1)

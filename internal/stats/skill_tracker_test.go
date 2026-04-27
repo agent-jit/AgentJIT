@@ -29,7 +29,7 @@ func TestCheckSkillExecution_AJSkill(t *testing.T) {
 	}
 
 	CheckSkillExecution("Skill", "post_tool_use", "test-session",
-		map[string]interface{}{"skill": "deploy-staging"}, paths)
+		map[string]interface{}{"skill": "deploy-staging"}, "", nil, paths)
 
 	records, err := ReadAllRecords(paths.Stats)
 	if err != nil {
@@ -52,12 +52,15 @@ func TestCheckSkillExecution_AJSkill(t *testing.T) {
 	if !data.Success {
 		t.Error("expected success=true")
 	}
+	if data.FailureCategory != "" {
+		t.Errorf("expected empty failure category for success, got %s", data.FailureCategory)
+	}
 	if data.EstimatedTokensSaved != 1300 {
 		t.Errorf("expected 1300 tokens saved, got %d", data.EstimatedTokensSaved)
 	}
 }
 
-func TestCheckSkillExecution_Failure(t *testing.T) {
+func TestCheckSkillExecution_ScriptError(t *testing.T) {
 	dir := t.TempDir()
 	paths := config.PathsFromRoot(dir)
 	if err := paths.EnsureDirs(); err != nil {
@@ -73,7 +76,7 @@ func TestCheckSkillExecution_Failure(t *testing.T) {
 	}
 
 	CheckSkillExecution("Skill", "post_tool_use_failure", "",
-		map[string]interface{}{"skill": "deploy-staging"}, paths)
+		map[string]interface{}{"skill": "deploy-staging"}, "skill file not found", nil, paths)
 
 	records, _ := ReadAllRecords(paths.Stats)
 	if len(records) != 1 {
@@ -85,7 +88,88 @@ func TestCheckSkillExecution_Failure(t *testing.T) {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	if data.Success {
-		t.Error("expected success=false for post_tool_use_failure")
+		t.Error("expected success=false")
+	}
+	if data.FailureCategory != "script_error" {
+		t.Errorf("expected failure_category=script_error, got %s", data.FailureCategory)
+	}
+	if data.FailureReason != "skill file not found" {
+		t.Errorf("expected failure_reason='skill file not found', got %s", data.FailureReason)
+	}
+}
+
+func TestCheckSkillExecution_TargetFailure(t *testing.T) {
+	dir := t.TempDir()
+	paths := config.PathsFromRoot(dir)
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
+
+	skillDir := filepath.Join(paths.Skills, "build-test")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "metadata.json"), []byte(`{"roi":{"savings_per_invocation":800}}`), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	exitCode := 1
+	CheckSkillExecution("Skill", "post_tool_use_failure", "",
+		map[string]interface{}{"skill": "build-test"}, "", &exitCode, paths)
+
+	records, _ := ReadAllRecords(paths.Stats)
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(records))
+	}
+
+	var data SkillExecutionData
+	if err := json.Unmarshal(records[0].Data, &data); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if data.Success {
+		t.Error("expected success=false")
+	}
+	if data.FailureCategory != "target_failure" {
+		t.Errorf("expected failure_category=target_failure, got %s", data.FailureCategory)
+	}
+	if data.FailureReason != "exit code 1" {
+		t.Errorf("expected failure_reason='exit code 1', got %s", data.FailureReason)
+	}
+}
+
+func TestCheckSkillExecution_TargetFailureWithError(t *testing.T) {
+	dir := t.TempDir()
+	paths := config.PathsFromRoot(dir)
+	if err := paths.EnsureDirs(); err != nil {
+		t.Fatalf("EnsureDirs: %v", err)
+	}
+
+	skillDir := filepath.Join(paths.Skills, "build-test")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "metadata.json"), []byte(`{}`), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	exitCode := 2
+	CheckSkillExecution("Skill", "post_tool_use_failure", "",
+		map[string]interface{}{"skill": "build-test"}, "build failed: 3 errors", &exitCode, paths)
+
+	records, _ := ReadAllRecords(paths.Stats)
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record, got %d", len(records))
+	}
+
+	var data SkillExecutionData
+	if err := json.Unmarshal(records[0].Data, &data); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if data.FailureCategory != "target_failure" {
+		t.Errorf("expected target_failure when exit code + error present, got %s", data.FailureCategory)
+	}
+	if data.FailureReason != "build failed: 3 errors" {
+		t.Errorf("unexpected failure reason: %s", data.FailureReason)
 	}
 }
 
@@ -96,9 +180,8 @@ func TestCheckSkillExecution_NonAJSkill(t *testing.T) {
 		t.Fatalf("EnsureDirs: %v", err)
 	}
 
-	// No skill directory created — this skill is not AJ-generated
 	CheckSkillExecution("Skill", "post_tool_use", "",
-		map[string]interface{}{"skill": "user-created-skill"}, paths)
+		map[string]interface{}{"skill": "user-created-skill"}, "", nil, paths)
 
 	records, _ := ReadAllRecords(paths.Stats)
 	if len(records) != 0 {
@@ -111,7 +194,7 @@ func TestCheckSkillExecution_NonSkillTool(t *testing.T) {
 	paths := config.PathsFromRoot(dir)
 
 	CheckSkillExecution("Bash", "post_tool_use", "",
-		map[string]interface{}{"command": "ls"}, paths)
+		map[string]interface{}{"command": "ls"}, "", nil, paths)
 
 	records, _ := ReadAllRecords(paths.Stats)
 	if len(records) != 0 {
@@ -126,14 +209,13 @@ func TestCheckSkillExecution_MissingMetadata(t *testing.T) {
 		t.Fatalf("EnsureDirs: %v", err)
 	}
 
-	// Create skill directory without metadata.json
 	skillDir := filepath.Join(paths.Skills, "bare-skill")
 	if err := os.MkdirAll(skillDir, 0755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
 
 	CheckSkillExecution("Skill", "post_tool_use", "",
-		map[string]interface{}{"skill": "bare-skill"}, paths)
+		map[string]interface{}{"skill": "bare-skill"}, "", nil, paths)
 
 	records, _ := ReadAllRecords(paths.Stats)
 	if len(records) != 1 {
