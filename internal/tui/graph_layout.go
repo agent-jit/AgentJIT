@@ -14,6 +14,19 @@ const (
 	vGap       = 4
 )
 
+// LayoutParams holds the sizing parameters for graph layout.
+type LayoutParams struct {
+	NodeWidth  int
+	NodeHeight int
+	HGap       int
+	VGap       int
+}
+
+// DefaultLayoutParams returns layout parameters for the normal view.
+func DefaultLayoutParams() LayoutParams {
+	return LayoutParams{nodeWidth, nodeHeight, hGap, vGap}
+}
+
 // LayoutNode holds a positioned node for rendering.
 type LayoutNode struct {
 	ID     uint64
@@ -34,18 +47,28 @@ type LayoutResult struct {
 
 // ComputeLayout runs a simplified Sugiyama-style layered layout on the trace graph.
 func ComputeLayout(g *trace.TraceGraph) *LayoutResult {
+	return ComputeLayoutWithParams(g, DefaultLayoutParams())
+}
+
+// ComputeLayoutWithParams runs layout with the given sizing parameters.
+func ComputeLayoutWithParams(g *trace.TraceGraph, params LayoutParams) *LayoutResult {
 	if len(g.Nodes) == 0 {
 		return &LayoutResult{Nodes: make(map[uint64]*LayoutNode)}
 	}
 
-	labels := buildLabels(g)
+	labels := buildLabelsWithWidth(g, params.NodeWidth)
 	layers := assignLayers(g)
 	orderInLayer := orderNodes(g, layers)
-	return positionNodes(g, labels, layers, orderInLayer)
+	return positionNodesWithParams(g, labels, layers, orderInLayer, params)
 }
 
 // buildLabels creates a display label for each node.
 func buildLabels(g *trace.TraceGraph) map[uint64]string {
+	return buildLabelsWithWidth(g, nodeWidth)
+}
+
+// buildLabelsWithWidth creates a display label for each node with a given max width.
+func buildLabelsWithWidth(g *trace.TraceGraph, nWidth int) map[uint64]string {
 	labels := make(map[uint64]string, len(g.Nodes))
 
 	// Count how many nodes share each ToolName to decide if we need disambiguation.
@@ -54,10 +77,14 @@ func buildLabels(g *trace.TraceGraph) map[uint64]string {
 		toolCounts[n.ToolName]++
 	}
 
+	maxLen := nWidth - 4 // border + padding
+	if maxLen < 3 {
+		maxLen = 3
+	}
+
 	for id, n := range g.Nodes {
 		if n.ToolName == "Bash" {
 			if cmd, ok := n.InputShape["command"]; ok {
-				maxLen := nodeWidth - 4 // border + padding
 				if len(cmd) > maxLen {
 					cmd = cmd[:maxLen-3] + "..."
 				}
@@ -72,7 +99,6 @@ func buildLabels(g *trace.TraceGraph) map[uint64]string {
 				suffix = k + ":" + v
 				break
 			}
-			maxLen := nodeWidth - 4
 			label := n.ToolName
 			if suffix != "" {
 				label = n.ToolName + " " + suffix
@@ -82,7 +108,11 @@ func buildLabels(g *trace.TraceGraph) map[uint64]string {
 			}
 			labels[id] = label
 		} else {
-			labels[id] = n.ToolName
+			label := n.ToolName
+			if len(label) > maxLen {
+				label = label[:maxLen-3] + "..."
+			}
+			labels[id] = label
 		}
 	}
 	return labels
@@ -274,6 +304,11 @@ func totalWeight(g *trace.TraceGraph, id uint64) int {
 
 // positionNodes converts layer/order assignments into pixel coordinates.
 func positionNodes(g *trace.TraceGraph, labels map[uint64]string, layers, order map[uint64]int) *LayoutResult {
+	return positionNodesWithParams(g, labels, layers, order, DefaultLayoutParams())
+}
+
+// positionNodesWithParams converts layer/order assignments into coordinates using the given params.
+func positionNodesWithParams(g *trace.TraceGraph, labels map[uint64]string, layers, order map[uint64]int, params LayoutParams) *LayoutResult {
 	result := &LayoutResult{
 		Nodes: make(map[uint64]*LayoutNode, len(g.Nodes)),
 	}
@@ -300,29 +335,29 @@ func positionNodes(g *trace.TraceGraph, labels map[uint64]string, layers, order 
 			Label:  labels[id],
 			Layer:  l,
 			Order:  o,
-			X:      o * (nodeWidth + hGap),
-			Y:      l * (nodeHeight + vGap),
-			Width:  nodeWidth,
-			Height: nodeHeight,
+			X:      o * (params.NodeWidth + params.HGap),
+			Y:      l * (params.NodeHeight + params.VGap),
+			Width:  params.NodeWidth,
+			Height: params.NodeHeight,
 		}
 		result.Nodes[id] = ln
 	}
 
 	// Compute total canvas size.
 	for l := 0; l <= maxLayer; l++ {
-		layerWidth := (maxOrder[l] + 1) * (nodeWidth + hGap)
+		layerWidth := (maxOrder[l] + 1) * (params.NodeWidth + params.HGap)
 		if layerWidth > result.TotalWidth {
 			result.TotalWidth = layerWidth
 		}
 	}
-	result.TotalHeight = (maxLayer + 1) * (nodeHeight + vGap)
+	result.TotalHeight = (maxLayer + 1) * (params.NodeHeight + params.VGap)
 
 	// Ensure minimum size.
-	if result.TotalWidth < nodeWidth {
-		result.TotalWidth = nodeWidth
+	if result.TotalWidth < params.NodeWidth {
+		result.TotalWidth = params.NodeWidth
 	}
-	if result.TotalHeight < nodeHeight {
-		result.TotalHeight = nodeHeight
+	if result.TotalHeight < params.NodeHeight {
+		result.TotalHeight = params.NodeHeight
 	}
 
 	return result
@@ -330,16 +365,28 @@ func positionNodes(g *trace.TraceGraph, labels map[uint64]string, layers, order 
 
 // NodeLabel returns the display label for a node (exported for use in rendering).
 func NodeLabel(n *trace.Node) string {
+	return NodeLabelWithWidth(n, nodeWidth)
+}
+
+// NodeLabelWithWidth returns the display label for a node with a given max width.
+func NodeLabelWithWidth(n *trace.Node, nWidth int) string {
+	maxLen := nWidth - 4
+	if maxLen < 3 {
+		maxLen = 3
+	}
 	if n.ToolName == "Bash" {
 		if cmd, ok := n.InputShape["command"]; ok {
-			maxLen := nodeWidth - 4
 			if len(cmd) > maxLen {
 				cmd = cmd[:maxLen-3] + "..."
 			}
 			return cmd
 		}
 	}
-	return n.ToolName
+	label := n.ToolName
+	if len(label) > maxLen {
+		label = label[:maxLen-3] + "..."
+	}
+	return label
 }
 
 // SortedNodeIDs returns node IDs sorted by layer then order for consistent Tab cycling.

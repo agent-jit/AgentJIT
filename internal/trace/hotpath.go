@@ -6,6 +6,7 @@ import "sort"
 type HotPath struct {
 	NodeIDs    []uint64 // ordered sequence of node IDs
 	Frequency  int      // number of sessions where this exact path appears
+	Score      int      // combined score: sum of per-session bottleneck counts
 	SessionIDs []string // contributing sessions
 }
 
@@ -19,13 +20,13 @@ func FindHotPaths(g *TraceGraph, minFrequency, minLength, maxLength int) []HotPa
 			continue
 		}
 
-		dfs(g, []uint64{nodeID}, nil, minFrequency, minLength, maxLength, &candidates)
+		dfs(g, []uint64{nodeID}, nil, nil, minFrequency, minLength, maxLength, &candidates)
 	}
 
 	return pruneSubPaths(candidates)
 }
 
-func dfs(g *TraceGraph, path []uint64, sessionSet []string, minFrequency, minLength, maxLength int, results *[]HotPath) {
+func dfs(g *TraceGraph, path []uint64, sessionSet []string, sessionScores map[string]int, minFrequency, minLength, maxLength int, results *[]HotPath) {
 	tail := path[len(path)-1]
 	adj := g.Edges[tail]
 	if adj == nil {
@@ -37,11 +38,26 @@ func dfs(g *TraceGraph, path []uint64, sessionSet []string, minFrequency, minLen
 			continue
 		}
 		var commonSessions []string
+		var newScores map[string]int
 		if sessionSet == nil {
 			// First edge: use edge's session IDs directly
 			commonSessions = edge.SessionIDs
+			newScores = make(map[string]int, len(edge.SessionWeights))
+			for sid, w := range edge.SessionWeights {
+				newScores[sid] = w
+			}
 		} else {
 			commonSessions = intersect(sessionSet, edge.SessionIDs)
+			newScores = make(map[string]int, len(commonSessions))
+			for _, sid := range commonSessions {
+				prev := sessionScores[sid]
+				cur := edge.SessionWeights[sid]
+				if cur < prev {
+					newScores[sid] = cur
+				} else {
+					newScores[sid] = prev
+				}
+			}
 		}
 
 		if len(commonSessions) < minFrequency {
@@ -55,15 +71,20 @@ func dfs(g *TraceGraph, path []uint64, sessionSet []string, minFrequency, minLen
 		if len(newPath) >= minLength {
 			sessions := make([]string, len(commonSessions))
 			copy(sessions, commonSessions)
+			score := 0
+			for _, w := range newScores {
+				score += w
+			}
 			*results = append(*results, HotPath{
 				NodeIDs:    newPath,
 				Frequency:  len(commonSessions),
+				Score:      score,
 				SessionIDs: sessions,
 			})
 		}
 
 		if len(newPath) < maxLength {
-			dfs(g, newPath, commonSessions, minFrequency, minLength, maxLength, results)
+			dfs(g, newPath, commonSessions, newScores, minFrequency, minLength, maxLength, results)
 		}
 	}
 }
@@ -100,10 +121,13 @@ func pruneSubPaths(paths []HotPath) []HotPath {
 		return paths
 	}
 
-	// Sort by length descending, then frequency descending
+	// Sort by length descending, then score descending, then frequency descending
 	sort.Slice(paths, func(i, j int) bool {
 		if len(paths[i].NodeIDs) != len(paths[j].NodeIDs) {
 			return len(paths[i].NodeIDs) > len(paths[j].NodeIDs)
+		}
+		if paths[i].Score != paths[j].Score {
+			return paths[i].Score > paths[j].Score
 		}
 		return paths[i].Frequency > paths[j].Frequency
 	})

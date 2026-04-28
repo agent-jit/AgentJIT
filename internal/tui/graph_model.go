@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/agent-jit/agentjit/internal/trace"
 )
 
@@ -178,9 +179,16 @@ func (m GraphModel) View() string {
 	graphView := RenderViewport(m.canvas, m.vpX, m.vpY, m.width, viewH)
 
 	if m.showDetail && m.selected >= 0 {
-		// Overlay detail panel on the right side.
+		// Render graph and detail panel side by side from the canvas
+		// to avoid ANSI escape sequence corruption.
+		panelWidth := 34
+		graphWidth := m.width - panelWidth
+		if graphWidth < 1 {
+			graphWidth = 1
+		}
+		leftView := RenderViewport(m.canvas, m.vpX, m.vpY, graphWidth, viewH)
 		detail := m.renderDetail()
-		b.WriteString(overlayRight(graphView, detail, m.width, viewH))
+		b.WriteString(composeSideBySide(leftView, detail, graphWidth, panelWidth, viewH))
 	} else {
 		b.WriteString(graphView)
 	}
@@ -241,10 +249,12 @@ func (m GraphModel) renderDetail() string {
 	panelWidth := 32
 	var b strings.Builder
 
-	b.WriteString(headerStyle.Render(ln.Label))
+	b.WriteString(headerStyle.Render(node.ToolName))
 	b.WriteRune('\n')
-	b.WriteString(dimStyle.Render(node.ToolName))
-	b.WriteRune('\n')
+	if cmd, ok := node.InputShape["command"]; ok && cmd != "" {
+		b.WriteString(dimStyle.Render(cmd))
+		b.WriteRune('\n')
+	}
 	b.WriteRune('\n')
 
 	// Outgoing edges.
@@ -349,52 +359,35 @@ func incomingEdges(g *trace.TraceGraph, id uint64) []*trace.Edge {
 	return edges
 }
 
-// overlayRight overlays a detail panel on the right side of the graph view.
-func overlayRight(graphView, detail string, width, height int) string {
-	graphLines := strings.Split(graphView, "\n")
-	detailLines := strings.Split(detail, "\n")
+// composeSideBySide places the graph viewport and detail panel next to each other.
+// Both sides are plain rendered strings; no ANSI-aware slicing needed.
+func composeSideBySide(leftView, detail string, leftWidth, rightWidth, height int) string {
+	leftLines := strings.Split(leftView, "\n")
+	rightLines := strings.Split(detail, "\n")
 
-	// Ensure we have enough graph lines.
-	for len(graphLines) < height {
-		graphLines = append(graphLines, "")
-	}
-
-	panelWidth := 34
-	panelStart := width - panelWidth
-	if panelStart < 0 {
-		panelStart = 0
+	for len(leftLines) < height {
+		leftLines = append(leftLines, "")
 	}
 
 	var b strings.Builder
 	for i := 0; i < height; i++ {
-		line := graphLines[i]
-		// Pad line to full width.
-		for len(line) < width {
-			line += " "
+		// Left side: graph (already rendered at the correct width by RenderViewport).
+		b.WriteString(leftLines[i])
+
+		// Separator + right side: detail panel.
+		if i < len(rightLines) {
+			line := " \u2502 " + rightLines[i]
+			// Pad or truncate to rightWidth.
+			vis := lipgloss.Width(line)
+			if vis < rightWidth {
+				line += strings.Repeat(" ", rightWidth-vis)
+			}
+			b.WriteString(line)
+		} else {
+			b.WriteString(" \u2502 ")
+			b.WriteString(strings.Repeat(" ", rightWidth-4))
 		}
 
-		if i < len(detailLines) && panelStart > 0 {
-			// Replace right portion with detail content.
-			detailLine := " \u2502 " + detailLines[i]
-			if len(detailLine) > panelWidth {
-				detailLine = detailLine[:panelWidth]
-			}
-			// Pad detail line.
-			for len(detailLine) < panelWidth {
-				detailLine += " "
-			}
-
-			runes := []rune(line)
-			detailRunes := []rune(detailLine)
-			if panelStart < len(runes) {
-				result := make([]rune, panelStart)
-				copy(result, runes[:panelStart])
-				result = append(result, detailRunes...)
-				line = string(result)
-			}
-		}
-
-		b.WriteString(line)
 		if i < height-1 {
 			b.WriteRune('\n')
 		}
