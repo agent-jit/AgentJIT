@@ -7,21 +7,27 @@ import (
 
 // Paths holds all filesystem paths used by AJ.
 type Paths struct {
-	Root       string // ~/.aj
-	Config     string // ~/.aj/config.json
-	Logs       string // ~/.aj/logs
-	Skills     string // ~/.aj/skills
-	PID        string // ~/.aj/daemon.pid
-	Socket     string // ~/.aj/daemon.sock
-	CompileLog   string // ~/.aj/compile-log.jsonl
-	CompileMarker string // ~/.aj/last_compile_marker
+	Root               string // ~/.aj
+	Config             string // ~/.aj/config.json
+	Logs               string // ~/.aj/logs
+	Skills             string // ~/.aj/skills
+	PID                string // ~/.aj/daemon.pid
+	Socket             string // ~/.aj/daemon.sock
+	CompileLog         string // ~/.aj/compile-log.jsonl
+	CompileMarker      string // ~/.aj/last_compile_marker
 	BootstrapProcessed string // ~/.aj/bootstrap_processed.json
-	Stats          string // ~/.aj/stats.jsonl
-	IRCatalog      string // path to IR catalog YAML
+	Stats              string // ~/.aj/stats.jsonl
+	IRCatalog          string // path to IR catalog YAML
 }
 
-// DefaultPaths returns Paths rooted at ~/.aj.
+// DefaultPaths returns Paths rooted at the AJ root directory.
+//
+// The root is $AJ_HOME when set (used to point AJ at an isolated sandbox, e.g.
+// for benchmarking, without touching the real data), otherwise ~/.aj.
 func DefaultPaths() (Paths, error) {
+	if root := os.Getenv("AJ_HOME"); root != "" {
+		return PathsFromRoot(root), nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return Paths{}, err
