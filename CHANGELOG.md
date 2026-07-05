@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-07-05
+
+### Fixed
+- Build error `undefined: filterGraph` in `cmd/aj/trace_cmd.go`: the `trace` command called a
+  `filterGraph` helper that was never defined, so `aj` failed to compile. Added `filterGraph`, which
+  filters the trace graph by `--tool` name(s) and minimum edge weight before hot-path detection.
+
 ### Added
 - **Deterministic trace compiler**: zero-token pattern detection and compilation for recurring tool-call sequences
   - `internal/trace/` package: trace graph builder, InputShape fingerprinting, hot path detection (DFS with session intersection), structural diffing and parameterization, confidence scoring
@@ -120,6 +127,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fsnotify-based skill file watcher with daemon notifications
 - CI pipeline with goreleaser for cross-platform builds (linux, darwin, windows)
 
+[Unreleased]: https://github.com/agent-jit/AgentJIT/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/agent-jit/AgentJIT/compare/v0.2.1...v0.2.2
 [0.1.3]: https://github.com/agent-jit/AgentJIT/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/agent-jit/AgentJIT/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/agent-jit/AgentJIT/compare/v0.1.0...v0.1.1
