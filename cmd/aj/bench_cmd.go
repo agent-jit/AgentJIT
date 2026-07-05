@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/agent-jit/agentjit/internal/bench"
+	"github.com/agent-jit/agentjit/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -80,8 +81,22 @@ var benchCmd = &cobra.Command{
 }
 
 // runCompare runs every task under both arms and reports the baseline-vs-JIT
-// comparison, including break-even when a compile cost is supplied.
+// comparison, including break-even when a compile cost is available.
 func runCompare(runner bench.Runner, tasks []bench.Task) error {
+	compileCost := benchCompileCost
+	// When not given explicitly, read the real compile cost from the sandbox's
+	// stats (the tokens AgentJIT spent building the skills under test).
+	if compileCost == 0 {
+		if paths, err := config.DefaultPaths(); err == nil {
+			if c, err := bench.CompileCostFromStats(paths.Stats); err == nil && c > 0 {
+				compileCost = c
+				if !benchJSON {
+					fmt.Printf("[AJ] Using compile cost %d tokens from %s\n", compileCost, paths.Stats)
+				}
+			}
+		}
+	}
+
 	comparisons := make([]bench.Comparison, 0, len(tasks))
 	for _, task := range tasks {
 		baseline := runner.RunTask(context.Background(), task, bench.ArmBaseline, benchRollouts)
@@ -89,7 +104,7 @@ func runCompare(runner bench.Runner, tasks []bench.Task) error {
 		c := bench.Compare(baseline, jit)
 		comparisons = append(comparisons, c)
 		if !benchJSON {
-			printComparison(c)
+			printComparison(c, compileCost)
 		}
 	}
 	if benchJSON {
@@ -100,7 +115,7 @@ func runCompare(runner bench.Runner, tasks []bench.Task) error {
 	return nil
 }
 
-func printComparison(c bench.Comparison) {
+func printComparison(c bench.Comparison, compileCost int) {
 	fmt.Printf("[AJ] %s", c.Task)
 	if c.Shape != "" {
 		fmt.Printf(" [%s]", c.Shape)
@@ -115,8 +130,8 @@ func printComparison(c bench.Comparison) {
 	}
 	fmt.Printf("\n     T2S baseline %.0f (med %.0f) vs jit %.0f (med %.0f), saving %.0f/use",
 		c.Baseline.Mean, c.Baseline.Median, c.JIT.Mean, c.JIT.Median, c.PerInvocationSaving)
-	if benchCompileCost > 0 {
-		if be, ok := c.BreakEven(benchCompileCost); ok {
+	if compileCost > 0 {
+		if be, ok := c.BreakEven(compileCost); ok {
 			fmt.Printf(", break-even @ %.1f invocations", be)
 		} else {
 			fmt.Print(", never breaks even")
@@ -158,6 +173,6 @@ func init() {
 	benchCmd.Flags().BoolVar(&benchJSON, "json", false, "Emit per-task results as JSON")
 	benchCmd.Flags().BoolVar(&benchDryRun, "dry-run", false, "Exercise the harness without invoking claude")
 	benchCmd.Flags().BoolVar(&benchCompare, "compare", false, "Run both arms per task and report baseline-vs-JIT")
-	benchCmd.Flags().IntVar(&benchCompileCost, "compile-cost", 0, "Skill compile cost (tokens) for break-even in --compare")
+	benchCmd.Flags().IntVar(&benchCompileCost, "compile-cost", 0, "Skill compile cost (tokens) for break-even; auto-read from AJ_HOME stats if unset")
 	rootCmd.AddCommand(benchCmd)
 }
