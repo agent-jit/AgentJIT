@@ -11,12 +11,14 @@ import (
 )
 
 var (
-	benchTasksFile string
-	benchArm       string
-	benchRollouts  int
-	benchModel     string
-	benchJSON      bool
-	benchDryRun    bool
+	benchTasksFile   string
+	benchArm         string
+	benchRollouts    int
+	benchModel       string
+	benchJSON        bool
+	benchDryRun      bool
+	benchCompare     bool
+	benchCompileCost int
 )
 
 var benchCmd = &cobra.Command{
@@ -52,6 +54,10 @@ var benchCmd = &cobra.Command{
 		}
 		runner := bench.Runner{Agent: agent, Verifier: bench.CommandVerifier{}}
 
+		if benchCompare {
+			return runCompare(runner, tasks)
+		}
+
 		results := make([]bench.TaskResult, 0, len(tasks))
 		for _, task := range tasks {
 			if !benchJSON {
@@ -71,6 +77,52 @@ var benchCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+// runCompare runs every task under both arms and reports the baseline-vs-JIT
+// comparison, including break-even when a compile cost is supplied.
+func runCompare(runner bench.Runner, tasks []bench.Task) error {
+	comparisons := make([]bench.Comparison, 0, len(tasks))
+	for _, task := range tasks {
+		baseline := runner.RunTask(context.Background(), task, bench.ArmBaseline, benchRollouts)
+		jit := runner.RunTask(context.Background(), task, bench.ArmJIT, benchRollouts)
+		c := bench.Compare(baseline, jit)
+		comparisons = append(comparisons, c)
+		if !benchJSON {
+			printComparison(c)
+		}
+	}
+	if benchJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(comparisons)
+	}
+	return nil
+}
+
+func printComparison(c bench.Comparison) {
+	fmt.Printf("[AJ] %s", c.Task)
+	if c.Shape != "" {
+		fmt.Printf(" [%s]", c.Shape)
+	}
+	fmt.Printf(": baseline %.0f%% / jit %.0f%%", c.BaselineSuccess*100, c.JITSuccess*100)
+	if !c.Comparable {
+		fmt.Println(" — not comparable (an arm had no verified rollout)")
+		return
+	}
+	if !c.IsoAccuracy {
+		fmt.Print(" — WARN: success differs, token comparison not iso-accuracy")
+	}
+	fmt.Printf("\n     T2S baseline %.0f (med %.0f) vs jit %.0f (med %.0f), saving %.0f/use",
+		c.Baseline.Mean, c.Baseline.Median, c.JIT.Mean, c.JIT.Median, c.PerInvocationSaving)
+	if benchCompileCost > 0 {
+		if be, ok := c.BreakEven(benchCompileCost); ok {
+			fmt.Printf(", break-even @ %.1f invocations", be)
+		} else {
+			fmt.Print(", never breaks even")
+		}
+	}
+	fmt.Println()
 }
 
 // modelArgs returns claude CLI args for a fixed model, or nil to use the default.
@@ -105,5 +157,7 @@ func init() {
 	benchCmd.Flags().StringVar(&benchModel, "model", "", "Pin the claude model (e.g. claude-opus-4-8)")
 	benchCmd.Flags().BoolVar(&benchJSON, "json", false, "Emit per-task results as JSON")
 	benchCmd.Flags().BoolVar(&benchDryRun, "dry-run", false, "Exercise the harness without invoking claude")
+	benchCmd.Flags().BoolVar(&benchCompare, "compare", false, "Run both arms per task and report baseline-vs-JIT")
+	benchCmd.Flags().IntVar(&benchCompileCost, "compile-cost", 0, "Skill compile cost (tokens) for break-even in --compare")
 	rootCmd.AddCommand(benchCmd)
 }
