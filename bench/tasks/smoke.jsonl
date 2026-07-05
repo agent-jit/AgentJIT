@@ -1,0 +1,7 @@
+# Smoke-test fixtures for `aj bench` — validate the harness pipeline only.
+# NOTE: rename tasks are a POOR JIT candidate (each targets a different symbol,
+# so the compiled skill does not transfer). These exist to wire up and check the
+# harness, NOT to measure JIT ROI. Real measurement uses repetition-parameterized
+# same-shape tasks (see design doc §3.2). `verify.command` exits 0 on success.
+{"id":"smoke-echo","prompt":"Print the word ok.","shape":"smoke","verify":{"command":["true"]}}
+{"id":"smoke-rename","prompt":"Rename the symbol foo to bar in this file.","shape":"rename","verify":{"command":["true"]}}
