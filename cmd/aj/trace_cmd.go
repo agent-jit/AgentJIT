@@ -209,6 +209,54 @@ func countEdges(g *trace.TraceGraph) int {
 	return count
 }
 
+// filterGraph returns a new graph keeping only nodes whose ToolName is in tools
+// (all nodes when tools is empty) and only edges whose weight is at least
+// minWeight and whose endpoints both survive.
+//
+// The returned graph is a fresh container but SHARES the *Node and *Edge
+// pointers with the input; it does not deep-copy them. Callers that later mutate
+// edges (e.g. DetectDataFlowEdges) must discard the original graph — the trace
+// command does this via `g = filterGraph(g, ...)`. Do not reuse this on a graph
+// that must stay pristine after downstream mutation.
+func filterGraph(g *trace.TraceGraph, tools []string, minWeight int) *trace.TraceGraph {
+	keep := make(map[string]bool, len(tools))
+	for _, t := range tools {
+		keep[t] = true
+	}
+
+	out := &trace.TraceGraph{
+		Nodes: make(map[uint64]*trace.Node),
+		Edges: make(map[uint64]map[uint64]*trace.Edge),
+	}
+
+	for id, node := range g.Nodes {
+		if len(keep) > 0 && !keep[node.ToolName] {
+			continue
+		}
+		out.Nodes[id] = node
+	}
+
+	for from, adj := range g.Edges {
+		if _, ok := out.Nodes[from]; !ok {
+			continue
+		}
+		for to, edge := range adj {
+			if _, ok := out.Nodes[to]; !ok {
+				continue
+			}
+			if edge.Weight < minWeight {
+				continue
+			}
+			if out.Edges[from] == nil {
+				out.Edges[from] = make(map[uint64]*trace.Edge)
+			}
+			out.Edges[from][to] = edge
+		}
+	}
+
+	return out
+}
+
 func init() {
 	traceCmd.Flags().BoolVar(&traceAll, "all", false, "Analyze all events under retention (ignore compile marker)")
 	traceCmd.Flags().StringSliceVar(&traceTools, "tool", nil, "Filter by tool name (e.g. --tool Bash,Read)")
