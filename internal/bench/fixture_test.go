@@ -101,3 +101,37 @@ func TestFixtureRegistry(t *testing.T) {
 		t.Error("FixtureShapes() is empty")
 	}
 }
+
+// Installing the skill must NOT fool the verifier: the SKILL.md contains the
+// guard text as an example, but the grep is scoped to *.go, so on an unmodified
+// fixture (0 guards in code) the verifier must still fail.
+func TestInstallSkillDoesNotContaminateVerifier(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("go toolchain not available")
+	}
+	dir := t.TempDir()
+	task, err := NullCheckFixture{}.Generate(dir, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := (NullCheckFixture{}).InstallSkill(task); err != nil {
+		t.Fatalf("InstallSkill: %v", err)
+	}
+	// Skill file exists (and contains the guard text as an example).
+	skillMD := filepath.Join(task.RepoDir, ".claude", "skills", "nullcheck-guard", "SKILL.md")
+	b, err := os.ReadFile(skillMD)
+	if err != nil {
+		t.Fatalf("skill not installed: %v", err)
+	}
+	if !strings.Contains(string(b), "if s == nil") {
+		t.Fatal("test premise broken: SKILL.md should contain the guard example")
+	}
+	// Verifier must still FAIL — code has 0 guards despite the skill example.
+	ok, err := CommandVerifier{}.Verify(context.Background(), task)
+	if err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if ok {
+		t.Error("verifier passed due to SKILL.md contamination; grep must exclude non-.go files")
+	}
+}
