@@ -62,11 +62,6 @@ func ComputeLayoutWithParams(g *trace.TraceGraph, params LayoutParams) *LayoutRe
 	return positionNodesWithParams(g, labels, layers, orderInLayer, params)
 }
 
-// buildLabels creates a display label for each node.
-func buildLabels(g *trace.TraceGraph) map[uint64]string {
-	return buildLabelsWithWidth(g, nodeWidth)
-}
-
 // buildLabelsWithWidth creates a display label for each node with a given max width.
 func buildLabelsWithWidth(g *trace.TraceGraph, nWidth int) map[uint64]string {
 	labels := make(map[uint64]string, len(g.Nodes))
@@ -300,11 +295,6 @@ func totalWeight(g *trace.TraceGraph, id uint64) int {
 		}
 	}
 	return w
-}
-
-// positionNodes converts layer/order assignments into pixel coordinates.
-func positionNodes(g *trace.TraceGraph, labels map[uint64]string, layers, order map[uint64]int) *LayoutResult {
-	return positionNodesWithParams(g, labels, layers, order, DefaultLayoutParams())
 }
 
 // positionNodesWithParams converts layer/order assignments into coordinates using the given params.
