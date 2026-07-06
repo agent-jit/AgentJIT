@@ -4,7 +4,29 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 )
+
+// fixtures is the registry of built-in repetition fixtures, keyed by shape name.
+var fixtures = map[string]Fixture{
+	"nullcheck": NullCheckFixture{},
+}
+
+// FixtureByShape returns the built-in fixture for a shape name.
+func FixtureByShape(shape string) (Fixture, bool) {
+	f, ok := fixtures[shape]
+	return f, ok
+}
+
+// FixtureShapes returns the sorted list of registered fixture shape names.
+func FixtureShapes() []string {
+	names := make([]string, 0, len(fixtures))
+	for k := range fixtures {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	return names
+}
 
 // Fixture materializes a self-contained, reproducible workspace for a
 // repetition-parameterized task (same shape repeated N times), and reports the

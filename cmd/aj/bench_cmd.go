@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/agent-jit/agentjit/internal/bench"
 	"github.com/agent-jit/agentjit/internal/config"
@@ -20,17 +21,24 @@ var (
 	benchDryRun      bool
 	benchCompare     bool
 	benchCompileCost int
+	benchGen         string
+	benchN           []int
+	benchWorkdir     string
 )
 
 var benchCmd = &cobra.Command{
 	Use:   "bench",
 	Short: "Benchmark AgentJIT skill ROI (baseline vs JIT) on a task suite",
-	Long: "Runs each task in a JSONL suite for N rollouts under an arm and reports\n" +
-		"tokens-to-success at iso-accuracy — only verified rollouts count.\n" +
+	Long: "Runs tasks for N rollouts under an arm and reports tokens-to-success at\n" +
+		"iso-accuracy — only verified rollouts count. Load tasks from a JSONL suite\n" +
+		"(--tasks) or generate a repetition fixture (--gen <shape> --n 1,2,4).\n" +
 		"Point AJ at an isolated sandbox with AJ_HOME so real data is untouched.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if benchTasksFile == "" {
-			return fmt.Errorf("--tasks is required (a JSONL task file)")
+		if benchTasksFile == "" && benchGen == "" {
+			return fmt.Errorf("provide --tasks <file> or --gen <shape>")
+		}
+		if benchTasksFile != "" && benchGen != "" {
+			return fmt.Errorf("--tasks and --gen are mutually exclusive")
 		}
 		arm := bench.Arm(benchArm)
 		if arm != bench.ArmBaseline && arm != bench.ArmJIT {
@@ -40,9 +48,15 @@ var benchCmd = &cobra.Command{
 			return fmt.Errorf("--rollouts must be >= 1")
 		}
 
-		tasks, err := bench.LoadTasks(benchTasksFile)
+		var tasks []bench.Task
+		var err error
+		if benchGen != "" {
+			tasks, err = generateTasks(benchGen, benchN, benchWorkdir)
+		} else {
+			tasks, err = bench.LoadTasks(benchTasksFile)
+		}
 		if err != nil {
-			return fmt.Errorf("loading tasks: %w", err)
+			return err
 		}
 		if len(tasks) == 0 {
 			fmt.Println("[AJ] No tasks in suite.")
@@ -140,6 +154,42 @@ func printComparison(c bench.Comparison, compileCost int) {
 	fmt.Println()
 }
 
+// generateTasks materializes a repetition fixture at each requested repeat count
+// under workdir (a temp dir when empty), returning one Task per count so a
+// benchmark can sweep the break-even curve.
+func generateTasks(shape string, counts []int, workdir string) ([]bench.Task, error) {
+	fixture, ok := bench.FixtureByShape(shape)
+	if !ok {
+		return nil, fmt.Errorf("unknown --gen shape %q (have: %v)", shape, bench.FixtureShapes())
+	}
+	if len(counts) == 0 {
+		counts = []int{3}
+	}
+	if workdir == "" {
+		dir, err := os.MkdirTemp("", "aj-bench-")
+		if err != nil {
+			return nil, err
+		}
+		workdir = dir
+		fmt.Printf("[AJ] Generated fixtures under %s\n", workdir)
+	}
+
+	tasks := make([]bench.Task, 0, len(counts))
+	for _, n := range counts {
+		// Each count gets its own subdir so fixtures never collide.
+		dir := filepath.Join(workdir, fmt.Sprintf("%s-%d", shape, n))
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, err
+		}
+		task, err := fixture.Generate(dir, n)
+		if err != nil {
+			return nil, fmt.Errorf("generate %s n=%d: %w", shape, n, err)
+		}
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
+}
+
 // modelArgs returns claude CLI args for a fixed model, or nil to use the default.
 func modelArgs(model string) []string {
 	if model == "" {
@@ -174,5 +224,8 @@ func init() {
 	benchCmd.Flags().BoolVar(&benchDryRun, "dry-run", false, "Exercise the harness without invoking claude")
 	benchCmd.Flags().BoolVar(&benchCompare, "compare", false, "Run both arms per task and report baseline-vs-JIT")
 	benchCmd.Flags().IntVar(&benchCompileCost, "compile-cost", 0, "Skill compile cost (tokens) for break-even; auto-read from AJ_HOME stats if unset")
+	benchCmd.Flags().StringVar(&benchGen, "gen", "", "Generate a repetition fixture by shape instead of --tasks (e.g. nullcheck)")
+	benchCmd.Flags().IntSliceVar(&benchN, "n", nil, "Repeat counts for --gen (e.g. --n 1,2,4 sweeps the curve)")
+	benchCmd.Flags().StringVar(&benchWorkdir, "workdir", "", "Where --gen writes fixtures (default: a temp dir)")
 	rootCmd.AddCommand(benchCmd)
 }

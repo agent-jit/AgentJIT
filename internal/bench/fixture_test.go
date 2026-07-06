@@ -84,3 +84,20 @@ func TestNullCheckVerifierPassesAfterFix(t *testing.T) {
 		t.Error("verifier failed after adding all guards; expected pass")
 	}
 }
+
+func TestFixtureRegistry(t *testing.T) {
+	f, ok := FixtureByShape("nullcheck")
+	if !ok {
+		t.Fatal("nullcheck fixture not registered")
+	}
+	if f.Shape() != "nullcheck" {
+		t.Errorf("Shape() = %q, want nullcheck", f.Shape())
+	}
+	if _, ok := FixtureByShape("does-not-exist"); ok {
+		t.Error("unknown shape reported as registered")
+	}
+	shapes := FixtureShapes()
+	if len(shapes) == 0 {
+		t.Error("FixtureShapes() is empty")
+	}
+}
