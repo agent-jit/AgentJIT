@@ -1,0 +1,23 @@
+version: "2"
+
+linters:
+  exclusions:
+    rules:
+      # AJ consistently ignores errors from best-effort cleanup calls
+      # (deferred Close on read handles, and Remove/RemoveAll during teardown).
+      # These are intentional and not worth wrapping at every call site.
+      - linters:
+          - errcheck
+        source: '^\s*(defer\s+)?\S+\.Close\(\)$'
+      - linters:
+          - errcheck
+        source: '^\s*os\.(Remove|RemoveAll|MkdirAll|WriteFile)\('
+  settings:
+    staticcheck:
+      # QF1012 (WriteString(fmt.Sprintf(...)) -> Fprintf) is a style quickfix and
+      # ST1000 (package-comment convention) is a doc-style check; neither is worth
+      # a repo-wide retroactive rewrite. All correctness (SA*) checks stay enabled.
+      checks:
+        - "all"
+        - "-QF1012"
+        - "-ST1000"

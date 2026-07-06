@@ -178,8 +178,7 @@ var traceCmd = &cobra.Command{
 			conf := trace.ScorePatternWithDataFlow(patterns[i], dfCount)
 			savings := len(patterns[i].Steps) * 200 // rough estimate
 
-			var compilationValue int
-			compilationValue = ranked[i].CompilationValue
+			compilationValue := ranked[i].CompilationValue
 
 			annotated[i] = tui.AnnotatedPath{
 				Path:             hp,
