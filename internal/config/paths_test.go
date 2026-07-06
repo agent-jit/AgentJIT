@@ -62,3 +62,61 @@ func TestClaudeSettingsLocal(t *testing.T) {
 		t.Errorf("ClaudeSettingsLocal = %q, want %q", got, want)
 	}
 }
+
+func TestDefaultPathsHonorsAJHome(t *testing.T) {
+	root := filepath.Join(os.TempDir(), "aj-sandbox")
+	t.Setenv("AJ_HOME", root)
+
+	p, err := DefaultPaths()
+	if err != nil {
+		t.Fatalf("DefaultPaths: %v", err)
+	}
+	if p.Root != root {
+		t.Errorf("Root = %q, want %q", p.Root, root)
+	}
+	if p.Config != filepath.Join(root, "config.json") {
+		t.Errorf("Config = %q, want %q", p.Config, filepath.Join(root, "config.json"))
+	}
+}
+
+func TestDefaultPathsFallsBackToHome(t *testing.T) {
+	t.Setenv("AJ_HOME", "")
+
+	p, err := DefaultPaths()
+	if err != nil {
+		t.Fatalf("DefaultPaths: %v", err)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("UserHomeDir: %v", err)
+	}
+	want := filepath.Join(home, ".aj")
+	if p.Root != want {
+		t.Errorf("Root = %q, want %q", p.Root, want)
+	}
+}
+
+// Two different AJ_HOME roots must produce fully disjoint paths so a benchmark
+// sandbox never collides with real data.
+func TestDefaultPathsIsolatesRoots(t *testing.T) {
+	rootA := filepath.Join(os.TempDir(), "aj-a")
+	t.Setenv("AJ_HOME", rootA)
+	a, err := DefaultPaths()
+	if err != nil {
+		t.Fatalf("DefaultPaths A: %v", err)
+	}
+
+	rootB := filepath.Join(os.TempDir(), "aj-b")
+	t.Setenv("AJ_HOME", rootB)
+	b, err := DefaultPaths()
+	if err != nil {
+		t.Fatalf("DefaultPaths B: %v", err)
+	}
+
+	if a.Root == b.Root {
+		t.Fatalf("roots collide: both %q", a.Root)
+	}
+	if a.Logs == b.Logs || a.Skills == b.Skills || a.Stats == b.Stats {
+		t.Errorf("sub-paths collide between roots %q and %q", a.Root, b.Root)
+	}
+}
