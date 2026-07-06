@@ -40,6 +40,17 @@ type Fixture interface {
 	Generate(dir string, n int) (Task, error)
 }
 
+// SkilledFixture is a Fixture that can install the compiled skill for its
+// workflow, so the JIT arm runs with the skill available (as if AgentJIT had
+// compiled it from prior runs). The skill is installed into the task's own
+// working tree (.claude/skills/), so `claude` picks it up in that cwd without
+// touching any global config — keeping arms isolated.
+type SkilledFixture interface {
+	Fixture
+	// InstallSkill writes the workflow's skill under task.RepoDir/.claude/skills.
+	InstallSkill(task Task) error
+}
+
 // NullCheckFixture generates N Go files, each with a function that dereferences
 // a pointer parameter without a nil guard. The workflow under test is "add a
 // nil-check to every such function" — a same-shape task that repeats N times,
@@ -76,10 +87,10 @@ func Length%d(s *string) int {
 	}
 
 	// Dual-gate verifier: build must pass, and exactly n guard lines must exist.
-	// `grep -rc` over the package, summed, must equal n. We check via a small
-	// shell pipeline so the fixture stays declarative.
+	// Scope the grep to Go sources (--include='*.go') so an installed skill's
+	// SKILL.md example (which contains the guard text) can't inflate the count.
 	guardCheck := fmt.Sprintf(
-		`test "$(grep -rho 'if s == nil' . | wc -l | tr -d '[:space:]')" = "%d"`, n)
+		`test "$(grep -rho --include='*.go' 'if s == nil' . | wc -l | tr -d '[:space:]')" = "%d"`, n)
 	verifyScript := fmt.Sprintf("go build ./... && %s", guardCheck)
 
 	return Task{
@@ -92,4 +103,31 @@ func Length%d(s *string) int {
 				"at the start of each of the %d functions. Keep the package building.", n),
 		Verify: Verification{Command: []string{"sh", "-c", verifyScript}},
 	}, nil
+}
+
+// InstallSkill writes a SKILL.md into task.RepoDir/.claude/skills/nullcheck-guard
+// that gives the exact, deterministic transformation for this workflow, so the
+// JIT arm can apply it mechanically instead of reasoning it out each time.
+func (NullCheckFixture) InstallSkill(task Task) error {
+	skillDir := filepath.Join(task.RepoDir, ".claude", "skills", "nullcheck-guard")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		return err
+	}
+	skill := "---\n" +
+		"name: nullcheck-guard\n" +
+		"description: Add a nil guard to Go functions that dereference a *string parameter s.\n" +
+		"---\n\n" +
+		"# nullcheck-guard\n\n" +
+		"For every function of the form `func LengthN(s *string) int { return len(*s) }`,\n" +
+		"insert a guard as the first statement so a nil pointer is handled:\n\n" +
+		"```go\n" +
+		"func LengthN(s *string) int {\n" +
+		"\tif s == nil {\n" +
+		"\t\treturn 0\n" +
+		"\t}\n" +
+		"\treturn len(*s)\n" +
+		"}\n" +
+		"```\n\n" +
+		"Apply this edit to every matching function in the package, then ensure it still builds.\n"
+	return os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skill), 0o644)
 }

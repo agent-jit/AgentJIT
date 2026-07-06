@@ -48,6 +48,19 @@ var benchCmd = &cobra.Command{
 			return fmt.Errorf("--rollouts must be >= 1")
 		}
 
+		var agent bench.AgentRunner = bench.ClaudeRunner{ExtraArgs: modelArgs(benchModel)}
+		if benchDryRun {
+			agent = dryRunAgent{}
+		}
+		runner := bench.Runner{Agent: agent, Verifier: bench.CommandVerifier{}}
+
+		// --gen --compare regenerates a fresh fixture per arm (baseline mutates
+		// the tree, so the JIT arm must start clean) and installs the skill for
+		// the JIT arm. This is the only path that yields a real break-even.
+		if benchGen != "" && benchCompare {
+			return runGenCompare(runner, benchGen, benchN, benchWorkdir)
+		}
+
 		var tasks []bench.Task
 		var err error
 		if benchGen != "" {
@@ -62,12 +75,6 @@ var benchCmd = &cobra.Command{
 			fmt.Println("[AJ] No tasks in suite.")
 			return nil
 		}
-
-		var agent bench.AgentRunner = bench.ClaudeRunner{ExtraArgs: modelArgs(benchModel)}
-		if benchDryRun {
-			agent = dryRunAgent{}
-		}
-		runner := bench.Runner{Agent: agent, Verifier: bench.CommandVerifier{}}
 
 		if benchCompare {
 			return runCompare(runner, tasks)
@@ -152,6 +159,77 @@ func printComparison(c bench.Comparison, compileCost int) {
 		}
 	}
 	fmt.Println()
+}
+
+// runGenCompare sweeps the repeat counts, regenerating a FRESH fixture for each
+// arm (baseline mutates the tree in place, so the JIT arm must not inherit it)
+// and installing the workflow skill for the JIT arm. Reports break-even per count.
+func runGenCompare(runner bench.Runner, shape string, counts []int, workdir string) error {
+	fixture, ok := bench.FixtureByShape(shape)
+	if !ok {
+		return fmt.Errorf("unknown --gen shape %q (have: %v)", shape, bench.FixtureShapes())
+	}
+	skilled, canSkill := fixture.(bench.SkilledFixture)
+	if !canSkill {
+		return fmt.Errorf("fixture %q has no skill to install; --gen --compare needs one", shape)
+	}
+	if len(counts) == 0 {
+		counts = []int{3}
+	}
+	base := workdir
+	if base == "" {
+		dir, err := os.MkdirTemp("", "aj-bench-")
+		if err != nil {
+			return err
+		}
+		base = dir
+		fmt.Printf("[AJ] Generated fixtures under %s\n", base)
+	}
+
+	// The JIT arm installs the skill before its episode.
+	runner.Setup = func(task bench.Task, arm bench.Arm) error {
+		if arm == bench.ArmJIT {
+			return skilled.InstallSkill(task)
+		}
+		return nil
+	}
+
+	comparisons := make([]bench.Comparison, 0, len(counts))
+	for _, n := range counts {
+		// Fresh, separate trees per arm so neither sees the other's edits.
+		baseTask, err := genInto(fixture, base, fmt.Sprintf("baseline-%s-%d", shape, n), n)
+		if err != nil {
+			return err
+		}
+		jitTask, err := genInto(fixture, base, fmt.Sprintf("jit-%s-%d", shape, n), n)
+		if err != nil {
+			return err
+		}
+		baseline := runner.RunTask(context.Background(), baseTask, bench.ArmBaseline, benchRollouts)
+		jit := runner.RunTask(context.Background(), jitTask, bench.ArmJIT, benchRollouts)
+		// Compare wants matching task IDs; both were generated at the same count.
+		jit.Task = baseline.Task
+		c := bench.Compare(baseline, jit)
+		comparisons = append(comparisons, c)
+		if !benchJSON {
+			printComparison(c, benchCompileCost)
+		}
+	}
+	if benchJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(comparisons)
+	}
+	return nil
+}
+
+// genInto generates a fixture into base/sub and returns its Task.
+func genInto(fixture bench.Fixture, base, sub string, n int) (bench.Task, error) {
+	dir := filepath.Join(base, sub)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return bench.Task{}, err
+	}
+	return fixture.Generate(dir, n)
 }
 
 // generateTasks materializes a repetition fixture at each requested repeat count

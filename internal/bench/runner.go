@@ -63,6 +63,10 @@ func (tr TaskResult) MeanTokensToSuccess() (float64, bool) {
 type Runner struct {
 	Agent    AgentRunner
 	Verifier Verifier
+	// Setup, if set, runs once before a task's rollouts begin — used to prepare
+	// arm-specific state (e.g. install the JIT arm's skill). A Setup error fails
+	// every rollout of that task (recorded, not counted).
+	Setup func(task Task, arm Arm) error
 }
 
 // RunTask runs a task under one arm for n rollouts, gating each on the verifier.
@@ -70,6 +74,16 @@ type Runner struct {
 // Verified=false; it never counts toward tokens-to-success.
 func (rn Runner) RunTask(ctx context.Context, task Task, arm Arm, n int) TaskResult {
 	res := TaskResult{Task: task.ID, Arm: arm, Shape: task.Shape}
+	if rn.Setup != nil {
+		if err := rn.Setup(task, arm); err != nil {
+			for i := 0; i < n; i++ {
+				res.Rollouts = append(res.Rollouts, RolloutResult{
+					Task: task.ID, Arm: arm, Index: i, Err: "setup: " + err.Error(),
+				})
+			}
+			return res
+		}
+	}
 	for i := 0; i < n; i++ {
 		rollout := RolloutResult{Task: task.ID, Arm: arm, Index: i}
 
