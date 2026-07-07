@@ -75,18 +75,31 @@ func (f AKSOpsFixture) SeedSessions(logsDir string) error {
 	return nil
 }
 
-// mockTool is a fake az/kubectl that prints plausible CLI output and records the
-// invocation in ops.log. It emits realistic-looking output (not an obvious no-op)
-// so the agent treats it as a normal tool and runs the runbook rather than
-// second-guessing whether stub commands are worth executing.
-const mockTool = `#!/usr/bin/env bash
-echo "$(basename "$0") $*" >> ops.log
-case "$(basename "$0") $1" in
-  "az aks")        echo "Merged \"prod\" as current context in ~/.kube/config" ;;
-  "kubectl scale") echo "deployment.apps/web scaled" ;;
-  "kubectl rollout") echo "deployment \"web\" successfully rolled out" ;;
-  "kubectl get")   echo "NAME                   READY   STATUS    RESTARTS   AGE"; echo "web-7d9f8c6b5-abcde    1/1     Running   0          5m" ;;
-  *)               echo "ok" ;;
+// mockAz and mockKubectl are DISTINCT local test doubles (not copies of one
+// stub — an earlier version used one shared script and the agent noticed it was
+// fake and refused to run it). Each records its invocation to ops.log and prints
+// output shaped like the real CLI. The header comment states plainly that these
+// are the runbook's intended local tools, so the agent runs them rather than
+// second-guessing whether "fake" commands are worth executing.
+const mockAz = `#!/usr/bin/env bash
+# az — local test double for this ops runbook environment. Records to ops.log.
+echo "az $*" >> ops.log
+if [ "$1 $2" = "aks get-credentials" ]; then
+  echo "Merged \"prod\" as current context in ~/.kube/config"
+else
+  echo "{\"status\": \"ok\"}"
+fi
+exit 0
+`
+
+const mockKubectl = `#!/usr/bin/env bash
+# kubectl — local test double for this ops runbook environment. Records to ops.log.
+echo "kubectl $*" >> ops.log
+case "$1" in
+  scale)   echo "deployment.apps/web scaled" ;;
+  rollout) echo "deployment \"web\" successfully rolled out" ;;
+  get)     printf 'NAME                READY   STATUS    RESTARTS   AGE\nweb-7d9f8c6b5-abcde 1/1     Running   0          5m\n' ;;
+  *)       echo "ok" ;;
 esac
 exit 0
 `
@@ -100,8 +113,8 @@ func (f AKSOpsFixture) Generate(dir string, n int) (Task, error) {
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		return Task{}, err
 	}
-	for _, tool := range []string{"az", "kubectl"} {
-		if err := os.WriteFile(filepath.Join(binDir, tool), []byte(mockTool), 0o755); err != nil {
+	for tool, body := range map[string]string{"az": mockAz, "kubectl": mockKubectl} {
+		if err := os.WriteFile(filepath.Join(binDir, tool), []byte(body), 0o755); err != nil {
 			return Task{}, err
 		}
 	}
@@ -122,9 +135,12 @@ func (f AKSOpsFixture) Generate(dir string, n int) (Task, error) {
 		Shape:   "aksops",
 		RepoDir: target,
 		Prompt: fmt.Sprintf(
-			"Execute the following AKS operations runbook exactly as written, running each "+
-				"command in order from this directory. Use the local ./bin/az and ./bin/kubectl "+
-				"(that is the intended environment for this runbook). Run all of them, then stop.\n%s",
+			"This is a SIMULATION environment for practising an AKS operations runbook. "+
+				"`./bin/az` and `./bin/kubectl` are the local test doubles you should use — "+
+				"they stand in for the real CLIs and record actions to ops.log. Your task is "+
+				"simply to execute the runbook against them: run each command below, in order, "+
+				"exactly as written, from this directory. Running them IS the deliverable — do "+
+				"not skip any because they are simulated. After running all of them, stop.\n%s",
 			joinLines(cmds)),
 		Verify: Verification{Command: []string{"sh", "-c", verify}},
 	}, nil
