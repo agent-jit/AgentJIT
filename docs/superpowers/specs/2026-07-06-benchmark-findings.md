@@ -37,6 +37,20 @@ study finds **no case where it clearly wins** — code-edit shapes are neutral-t
 ops shape came out ~neutral once measured reliably. A win, if it exists, likely needs workflows with
 *much* larger per-episode work that a compiled action can wholesale replace (not four cheap commands).
 
+**The structural reason (the deepest finding): the token cost is not where JIT optimizes.** Every episode
+costs ~250–330k tokens, and that is dominated by **fixed agent overhead** — the system prompt, tool
+definitions, and the context re-read every turn via cache (~44k cache-creation just to *boot* a session,
+then cache-reads compounding across turns). The *task-specific* work — a code edit, four commands, even
+17KB of verbose command output (tested: `az`/`kubectl` mocks emitting a 120-row pod table + JSON + rollout
+logs still moved the result <3%) — is a small slice of the total. A skill can only shortcut that slice, so
+**JIT compilation is structurally limited at saving tokens for Claude-Code-shaped tasks.** To make the
+task-specific portion dominate, the per-episode work would have to be enormous (hundreds of KB of output,
+or very long tool sequences) — not typical.
+
+**Implication:** AgentJIT's real value is more likely **latency and determinism** (a compiled script runs
+in milliseconds and can't hallucinate or skip a step) than raw token savings — a dimension this token
+benchmark does not yet measure. A benchmark v2 should add wall-clock and reliability.
+
 **Lesson baked in:** always compare at iso-accuracy and check the *verified* sample size on both arms — a
 mean over a handful of lucky successes is not a result. (`aj bench --compare` prints an iso-accuracy WARN
 when success rates differ; trust it.)
