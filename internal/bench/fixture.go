@@ -11,6 +11,7 @@ import (
 var fixtures = map[string]Fixture{
 	"nullcheck": NullCheckFixture{},
 	"shellseq":  ShellSeqFixture{},
+	"migrate":   MigrateFixture{},
 }
 
 // FixtureByShape returns the built-in fixture for a shape name.

@@ -9,17 +9,19 @@
 
 ## TL;DR
 
-On two trivial repetition workflows — `nullcheck` (hand-written skill) and `shellseq` (a **real
-`aj compile`** skill) — a skill produced a **~0% token saving** (354 and 19–35 tokens on ~236k / ~93k
-baselines) at equal (100%) success. With any realistic compile cost, **break-even is thousands of
-invocations — i.e. not worth compiling for these shapes.**
+Across three repetition workflows — `nullcheck` (hand-written skill), `shellseq` (a **real `aj compile`**
+skill), and `migrate` (exploration-heavy) — giving the agent a skill produced **no meaningful token
+saving, and on the exploration-heavy shape it was ~25% WORSE** (the skill's context cost outweighed what
+it saved). All at 100% iso-accuracy. **Conclusion: "repetitive workflow → compile a skill" is not a safe
+default** — injecting a skill is not free, and for these Claude-Code-shaped tasks its context cost tends
+to swamp the savings.
 
 This is a *useful* result, not a disappointing one: the benchmark exists to answer "does a skill
-actually save tokens, and after how many uses does it pay off?" — and here the honest answer is "no,
-not on a trivial edit or a short command sequence." It holds for a genuinely compiled skill, not just a
+actually save tokens, and after how many uses does it pay off?" — and the honest, measured answer across
+these shapes is "no, and sometimes it hurts." It holds for a genuinely compiled skill, not just a
 hand-written stand-in. The methodology (measure at iso-accuracy from API-reported usage, never estimate)
-is what makes that answer trustworthy. The open question is whether an **exploration-heavy** workflow —
-where the baseline burns tokens *finding* what to change — flips the result.
+is what makes the answer trustworthy. The open question is whether a workflow with *much* larger
+per-episode work, or a skill that genuinely removes reading rather than guiding it, ever flips this.
 
 ## Method (as implemented)
 
@@ -62,12 +64,15 @@ aj bench --gen nullcheck --n 2 --arm baseline   T2S 235,999  (2 guards, verified
 - **This is the intended signal.** Per the design, the headline is amortized break-even *stratified by
   shape*, not a global average. `nullcheck` is one (low-value) point on that curve.
 
-## Where a skill *should* pay off (hypothesis)
+## Where a skill *should* pay off (hypothesis — since TESTED, see `migrate` below)
 
-JIT value comes from skipping **exploration**, not from shortening a known edit. `nullcheck` needs
-almost no exploration, so there is nothing to save. A skill should show a real delta on workflows where
-the baseline burns tokens *finding* what to change — e.g. `migrate-N`: locate every call site of an API
-across N files, then apply a mechanical change. That is the natural next fixture.
+JIT value should come from skipping **exploration**, not from shortening a known edit. `nullcheck` needs
+almost no exploration, so there is nothing to save. The hypothesis was that a skill would show a real
+delta on workflows where the baseline burns tokens *finding* what to change — e.g. `migrate-N`: locate
+every call site of an API across N files, then apply a mechanical change.
+
+**This hypothesis was tested with the `migrate` fixture (below) and did NOT hold** — injecting the skill
+made it *worse*, not better. See "Update — exploration-heavy `migrate`".
 
 ## Update — real `aj compile` skill (`shellseq`, 2026-07-07)
 
@@ -95,6 +100,39 @@ Bash steps, so an Edit-based workflow like `nullcheck` routes to the LLM compile
 **Caveat on single-rollout runs:** baseline T2S is dominated by prompt-cache state that carries across
 the two sequential episodes, so `--rollouts 1` gives unreliable A/B numbers (a run once showed baseline
 0 vs jit 46k). Always use `--rollouts >= 3`; the harness reports mean/median/min/max.
+
+## Update — exploration-heavy `migrate` (2026-07-07): JIT made it WORSE
+
+`migrate` is the shape the hypothesis predicted a win for: N Go files each call a deprecated `OldName`
+buried among distractor helpers, and the task is to migrate every `OldName` call to `NewName`. The agent
+must **search/read across files** to find the call sites before editing — the exploration a skill was
+meant to remove. (Edit-based, so the JIT arm uses a hand-written skill naming the exact rename.)
+
+Measured at `--rollouts 3`:
+
+```
+migrate n=3:  baseline 190,635 (med 190,036)  vs  jit 238,512 (med 238,183)  →  saving −47,877/use
+```
+
+Both 100% at iso-accuracy (both migrated correctly). **The JIT arm was ~25% WORSE, not better** —
+consistent across rollouts (mean ≈ median). The hypothesis is refuted for this configuration.
+
+**Why:** injecting the skill *adds* context tokens, and the agent still reads the files to apply the
+edits — so the skill did not remove the exploration; it piled overhead on top of it. A naive
+project-local skill can be **net-negative even on an exploration-heavy task**.
+
+**Cross-shape summary (all at iso-accuracy):**
+
+| shape | skill source | per-use token delta |
+|---|---|---|
+| `nullcheck` | hand-written | ~0% (−354 tok on ~236k) |
+| `shellseq` | real `aj compile` | ~0% (−19..35 tok on ~93k) |
+| `migrate` | hand-written | **+25% (JIT ~48k MORE)** |
+
+**Takeaway:** injecting a skill is not free, and for these Claude-Code-shaped tasks the skill's context
+cost tends to swamp what it saves — sometimes badly. "Repetitive workflow → compile a skill" is *not*
+a safe default; the value case has to be targeted much more carefully (bigger per-episode work, or a
+skill that genuinely removes reading, not just guides it).
 
 ## Reproducing
 
