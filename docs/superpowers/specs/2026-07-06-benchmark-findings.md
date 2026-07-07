@@ -16,24 +16,26 @@
 | `nullcheck` | code-edit | hand-written | ~0% (−354 on ~236k), 100%/100% |
 | `shellseq` | trivial shell | real `aj compile` | ~0% (−19..35 on ~93k), 100%/100% |
 | `migrate` | code-edit (exploration) | hand-written | **−25% (JIT ~48k WORSE)**, 100%/100% |
-| `aksops` | SRE / tool-use | real `aj compile` | **inconclusive** — JIT only **33%** success at rollouts=6 |
+| `aksops` | SRE / tool-use | real `aj compile` | ~neutral (−5% mean / +7% median), 100%/100% — noisy, no clear win |
 
 **On `aksops` the apparent +14% was a small-sample artifact and is retracted.** At `--rollouts 3` the JIT
-arm happened to pass 3/3 and looked like a ~14% saving; at `--rollouts 6` the JIT arm succeeded only
-**2/6** (baseline 6/6), so the token "saving" is measured over a *different, smaller* success set — not
-iso-accuracy. Per the core methodology, a skill that lowers success rate is just "failing more cheaply,"
-which doesn't count. The `aksops` fixture is *flaky for the agent* (it keeps noticing the mock stubs are
-fake and sometimes short-circuits), so the ops question is **not yet answered** — it needs a fixture
-where both arms succeed reliably.
+arm happened to pass 3/3 and looked like a ~14% saving; at `--rollouts 6` it succeeded only **2/6**
+(baseline 6/6) — a mean over a *different, smaller* success set, not iso-accuracy (a skill that lowers
+success is just "failing more cheaply"). After **hardening the fixture** so both arms succeed 6/6, the
+valid iso-accuracy number is **~neutral** (−5% by mean, +7% by median, large baseline variance) — **no
+clear win**. So the ops question *is* now answered for this workflow: a compiled skill doesn't clearly pay
+off here either.
 
 **Mechanistically** (traced), a **code-edit** skill can only *annotate* — the model still reads and edits
 the files itself, so the skill is pure added context cost (net-negative on `migrate`). An **ops /
-tool-use** skill *could* pay off because it compiles to a **runnable script** the agent can invoke to do
-the work — but we have not yet demonstrated that at iso-accuracy.
+tool-use** skill *could* pay off in principle because it compiles to a **runnable script** — but on the
+`aksops` runbook it didn't move the needle at iso-accuracy: the agent still spends most of its tokens on
+fixed context, and running four short commands (whether by skill or directly) is cheap either way.
 
-**So "repetitive workflow → compile a skill" is not a safe default**, and this study does not (yet) show a
-case where it clearly wins. The ops/tool-use direction remains the most promising hypothesis but needs a
-reliable fixture to confirm.
+**So "repetitive workflow → compile a skill" is not a safe default**, and across these four shapes this
+study finds **no case where it clearly wins** — code-edit shapes are neutral-to-negative, and even the
+ops shape came out ~neutral once measured reliably. A win, if it exists, likely needs workflows with
+*much* larger per-episode work that a compiled action can wholesale replace (not four cheap commands).
 
 **Lesson baked in:** always compare at iso-accuracy and check the *verified* sample size on both arms — a
 mean over a handful of lucky successes is not a result. (`aj bench --compare` prints an iso-accuracy WARN
@@ -153,7 +155,7 @@ cost tends to swamp what it saves — sometimes badly. "Repetitive workflow → 
 a safe default; the value case has to be targeted much more carefully (bigger per-episode work, or a
 skill that genuinely removes reading, not just guides it).
 
-## Update — SRE runbook `aksops` (2026-07-07): inconclusive (a retracted +14%)
+## Update — SRE runbook `aksops` (2026-07-07): a retracted +14%, then a valid ~neutral
 
 `aksops` is the shape AgentJIT was designed for: a repetitive **operations runbook** —
 `az aks get-credentials` then `kubectl scale` / `rollout status` / `get pods`. It is Bash-shaped, so the
@@ -161,24 +163,27 @@ skill that genuinely removes reading, not just guides it).
 the commands* rather than reasoning through each. (`az`/`kubectl` are mocked under `bin/` so the
 benchmark is hermetic — no cluster.)
 
-**First reported at `--rollouts 3`** it looked like a win — baseline 332,620 vs jit 285,391, ~+14% — with
-both arms 100%. **A `--rollouts 6` re-run retracted that:**
+**The road to a trustworthy number here is itself the lesson.** First reported at `--rollouts 3` it looked
+like a +14% win (baseline 332,620 vs jit 285,391), both arms 100%. **A `--rollouts 6` re-run retracted
+that:** the JIT arm succeeded only **2/6** (baseline 6/6), so the "saving" was a mean over a *different,
+smaller* success set — **not iso-accuracy**, not valid. The flakiness cause (traced): the mock `az`/
+`kubectl` were one shared, obviously-fake stub, so the agent sometimes noticed ("identical simulation
+stubs … I'll pause here") and short-circuited.
+
+**Fix + valid measurement.** Made `az`/`kubectl` distinct test doubles and framed the task as an explicit
+simulation where running the runbook *is* the deliverable. Now both arms succeed reliably:
 
 ```
-aksops n=3, rollouts=6:
-  baseline: 100% success (6/6)   T2S mean 333,746   (tight: 332,517–336,441)
-  jit:       33% success (2/6)   T2S mean 259,922   (only over the 2 that passed)
+aksops n=3, rollouts=6 (hardened — both arms 100%, so iso-accuracy holds):
+  baseline: 100% (6/6)  T2S mean 293,418  med 332,396  [141,626–335,024]
+  jit:      100% (6/6)  T2S mean 308,486  med 308,858  [283,890–332,365]
+  -> -5.1% by mean (JIT slightly worse); ~+7% by median. No clear signal.
 ```
 
-The JIT arm **failed 4 of 6 rollouts**, so the token "saving" is a mean over a *different, smaller*
-success set — **not iso-accuracy**, and therefore not a valid comparison (a skill that lowers success is
-just "failing more cheaply"). The rollouts=3 run simply got lucky (JIT passed 3/3).
-
-**Root cause of the flakiness (traced):** the mock `az`/`kubectl` still read as obviously fake, so the
-agent sometimes notices ("identical simulation stubs … I'll pause here") and short-circuits; other times
-it ignores the compiled skill entirely and just runs the commands. So the JIT arm is *unreliable*, not
-cheaper. The ops question is **not yet answered** — it needs a fixture where both arms succeed reliably
-(better mocks that don't invite refusal, and/or a task the compiled script can't be trivially shortcut).
+**Verdict: even on the ops/tool-use shape, at true iso-accuracy, a compiled skill does not clearly pay
+off.** Mean says slightly worse, median says slightly better, baseline variance is large (one 141k
+rollout) — so the honest read is **~neutral, no meaningful win.** The +14% was purely a small-sample /
+reliability artifact.
 
 ## Why a code-edit skill doesn't save (traced)
 
