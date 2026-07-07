@@ -81,11 +81,28 @@ func (f AKSOpsFixture) SeedSessions(logsDir string) error {
 // output shaped like the real CLI. The header comment states plainly that these
 // are the runbook's intended local tools, so the agent runs them rather than
 // second-guessing whether "fake" commands are worth executing.
+//
+// The output is intentionally SIZABLE (JSON blobs, a many-row pod table, rollout
+// progress) to mirror real az/kubectl: each command's output round-trips into the
+// model's context in the baseline arm, which is the per-command cost a compiled
+// runbook skill (run in one shot) might avoid. Near-silent mocks understate that.
 const mockAz = `#!/usr/bin/env bash
 # az — local test double for this ops runbook environment. Records to ops.log.
 echo "az $*" >> ops.log
 if [ "$1 $2" = "aks get-credentials" ]; then
   echo "Merged \"prod\" as current context in ~/.kube/config"
+  cat <<'JSON'
+{
+  "apiVersion": "v1",
+  "clusters": [
+    {"cluster": {"certificate-authority-data": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...", "server": "https://prod-dns-a1b2c3d4.hcp.eastus.azmk8s.io:443"}, "name": "prod"}
+  ],
+  "contexts": [{"context": {"cluster": "prod", "user": "clusterUser_rg_prod"}, "name": "prod"}],
+  "current-context": "prod",
+  "kind": "Config",
+  "users": [{"name": "clusterUser_rg_prod", "user": {"token": "eyJhbGciOiJSUzI1NiIsImtpZCI6..."}}]
+}
+JSON
 else
   echo "{\"status\": \"ok\"}"
 fi
@@ -96,10 +113,23 @@ const mockKubectl = `#!/usr/bin/env bash
 # kubectl — local test double for this ops runbook environment. Records to ops.log.
 echo "kubectl $*" >> ops.log
 case "$1" in
-  scale)   echo "deployment.apps/web scaled" ;;
-  rollout) echo "deployment \"web\" successfully rolled out" ;;
-  get)     printf 'NAME                READY   STATUS    RESTARTS   AGE\nweb-7d9f8c6b5-abcde 1/1     Running   0          5m\n' ;;
-  *)       echo "ok" ;;
+  scale)
+    echo "deployment.apps/web scaled" ;;
+  rollout)
+    echo "Waiting for deployment \"web\" rollout to finish: 0 of 5 updated replicas are available..."
+    echo "Waiting for deployment \"web\" rollout to finish: 1 of 5 updated replicas are available..."
+    echo "Waiting for deployment \"web\" rollout to finish: 2 of 5 updated replicas are available..."
+    echo "Waiting for deployment \"web\" rollout to finish: 3 of 5 updated replicas are available..."
+    echo "Waiting for deployment \"web\" rollout to finish: 4 of 5 updated replicas are available..."
+    echo "deployment \"web\" successfully rolled out" ;;
+  get)
+    echo "NAME                    READY   STATUS    RESTARTS   AGE     IP            NODE                                NOMINATED NODE   READINESS GATES"
+    for i in $(seq 1 120); do
+      printf 'web-7d9f8c6b5-%s   1/1     Running   0          %dm    10.244.%d.%d   aks-nodepool1-24680123-vmss0000%02d   <none>           <none>\n' \
+        "$(printf '%05x' $((RANDOM % 1000000)))" "$i" $((i % 3)) $((i + 10)) $((i % 6))
+    done ;;
+  *)
+    echo "ok" ;;
 esac
 exit 0
 `
