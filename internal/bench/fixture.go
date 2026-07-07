@@ -10,6 +10,7 @@ import (
 // fixtures is the registry of built-in repetition fixtures, keyed by shape name.
 var fixtures = map[string]Fixture{
 	"nullcheck": NullCheckFixture{},
+	"shellseq":  ShellSeqFixture{},
 }
 
 // FixtureByShape returns the built-in fixture for a shape name.
