@@ -9,30 +9,38 @@
 
 ## TL;DR
 
-**Whether a compiled skill saves tokens depends on the *kind* of workflow — and the split is sharp.**
-Across four repetition workflows at 100% iso-accuracy:
+**Across four repetition workflows, no compiled skill produced a *valid* token win at iso-accuracy.**
 
-| shape | kind | skill source | per-use token delta |
+| shape | kind | skill source | verified result |
 |---|---|---|---|
-| `nullcheck` | code-edit | hand-written | ~0% (−354 on ~236k) |
-| `shellseq` | trivial shell | real `aj compile` | ~0% (−19..35 on ~93k) |
-| `migrate` | code-edit (exploration) | hand-written | **−25% (JIT ~48k WORSE)** |
-| `aksops` | **SRE / tool-use** | **real `aj compile`** | **+14% (JIT ~47k BETTER)** |
+| `nullcheck` | code-edit | hand-written | ~0% (−354 on ~236k), 100%/100% |
+| `shellseq` | trivial shell | real `aj compile` | ~0% (−19..35 on ~93k), 100%/100% |
+| `migrate` | code-edit (exploration) | hand-written | **−25% (JIT ~48k WORSE)**, 100%/100% |
+| `aksops` | SRE / tool-use | real `aj compile` | **inconclusive** — JIT only **33%** success at rollouts=6 |
 
-**The rule:** a **code-edit** skill can only *annotate* — the model still has to read and edit the files
-itself, so the skill is pure added context cost (net-negative on `migrate`). An **ops / tool-use** skill
-compiles to a **runnable script** the agent *invokes to do the work* (run the command sequence) instead
-of exploring and reasoning through each step — that genuinely replaces work, and it pays off (`aksops`,
-+14%).
+**On `aksops` the apparent +14% was a small-sample artifact and is retracted.** At `--rollouts 3` the JIT
+arm happened to pass 3/3 and looked like a ~14% saving; at `--rollouts 6` the JIT arm succeeded only
+**2/6** (baseline 6/6), so the token "saving" is measured over a *different, smaller* success set — not
+iso-accuracy. Per the core methodology, a skill that lowers success rate is just "failing more cheaply,"
+which doesn't count. The `aksops` fixture is *flaky for the agent* (it keeps noticing the mock stubs are
+fake and sometimes short-circuits), so the ops question is **not yet answered** — it needs a fixture
+where both arms succeed reliably.
 
-**So "repetitive workflow → compile a skill" is not a safe default.** AgentJIT should preferentially
-compile repetitive **Bash / tool-use sequences** (the SRE runbooks its `GlobalCLITools` list already
-targets — `kubectl`, `az`, `docker`, `aws`, …) and be skeptical of code-edit patterns. The value is in
-replacing *execution*, not annotating *edits*.
+**Mechanistically** (traced), a **code-edit** skill can only *annotate* — the model still reads and edits
+the files itself, so the skill is pure added context cost (net-negative on `migrate`). An **ops /
+tool-use** skill *could* pay off because it compiles to a **runnable script** the agent can invoke to do
+the work — but we have not yet demonstrated that at iso-accuracy.
 
-This is what the benchmark exists for: a trustworthy, measured answer (iso-accuracy, tokens from
-API-reported usage, never estimated) to "does a skill actually save tokens, and where?" — including the
-counterintuitive parts (a skill can make things *worse*).
+**So "repetitive workflow → compile a skill" is not a safe default**, and this study does not (yet) show a
+case where it clearly wins. The ops/tool-use direction remains the most promising hypothesis but needs a
+reliable fixture to confirm.
+
+**Lesson baked in:** always compare at iso-accuracy and check the *verified* sample size on both arms — a
+mean over a handful of lucky successes is not a result. (`aj bench --compare` prints an iso-accuracy WARN
+when success rates differ; trust it.)
+
+This is what the benchmark exists for: a trustworthy, measured answer — including catching a premature
+positive claim (this one) before it becomes folklore.
 
 ## Method (as implemented)
 
@@ -145,26 +153,32 @@ cost tends to swamp what it saves — sometimes badly. "Repetitive workflow → 
 a safe default; the value case has to be targeted much more carefully (bigger per-episode work, or a
 skill that genuinely removes reading, not just guides it).
 
-## Update — SRE runbook `aksops` (2026-07-07): JIT PAYS OFF (+14%)
+## Update — SRE runbook `aksops` (2026-07-07): inconclusive (a retracted +14%)
 
-`aksops` is the shape AgentJIT was actually designed for: a repetitive **operations runbook** —
+`aksops` is the shape AgentJIT was designed for: a repetitive **operations runbook** —
 `az aks get-credentials` then `kubectl scale` / `rollout status` / `get pods`. It is Bash-shaped, so the
-**deterministic** compiler produces a real *runnable* skill script, and the JIT arm invokes it to *run
+**deterministic** compiler produces a real *runnable* skill script, and the JIT arm can invoke it to *run
 the commands* rather than reasoning through each. (`az`/`kubectl` are mocked under `bin/` so the
 benchmark is hermetic — no cluster.)
 
-Measured at `--rollouts 3`, JIT skill from **real `aj compile`**:
+**First reported at `--rollouts 3`** it looked like a win — baseline 332,620 vs jit 285,391, ~+14% — with
+both arms 100%. **A `--rollouts 6` re-run retracted that:**
 
 ```
-aksops n=3:  baseline 332,620 (med 332,565)  vs  jit 285,391 (med 332,996)  →  saving +47,228/use (~14%)
+aksops n=3, rollouts=6:
+  baseline: 100% success (6/6)   T2S mean 333,746   (tight: 332,517–336,441)
+  jit:       33% success (2/6)   T2S mean 259,922   (only over the 2 that passed)
 ```
 
-Both 100% at iso-accuracy (both ran the full runbook). **This is the first positive result** — and it is
-the direct consequence of the mechanism found in the "why" investigation below: an ops skill *replaces*
-work, a code-edit skill only *annotates* it.
+The JIT arm **failed 4 of 6 rollouts**, so the token "saving" is a mean over a *different, smaller*
+success set — **not iso-accuracy**, and therefore not a valid comparison (a skill that lowers success is
+just "failing more cheaply"). The rollouts=3 run simply got lucky (JIT passed 3/3).
 
-*Caveat:* the JIT mean (285k) is below its median (333k) → real rollout variance; the **+14% direction is
-solid** but a tight figure needs more rollouts.
+**Root cause of the flakiness (traced):** the mock `az`/`kubectl` still read as obviously fake, so the
+agent sometimes notices ("identical simulation stubs … I'll pause here") and short-circuits; other times
+it ignores the compiled skill entirely and just runs the commands. So the JIT arm is *unreliable*, not
+cheaper. The ops question is **not yet answered** — it needs a fixture where both arms succeed reliably
+(better mocks that don't invite refusal, and/or a task the compiled script can't be trivially shortcut).
 
 ## Why a code-edit skill doesn't save (traced)
 
@@ -196,7 +210,7 @@ a too-obviously-fake hermetic mock can change what the agent decides to do, and 
 AJ_HOME=$(mktemp -d) aj bench --gen nullcheck --n 1,2 --compare --rollouts 3   # hand-written skill
 AJ_HOME=$(mktemp -d) aj bench --gen shellseq  --n 2,4 --compare --rollouts 3   # real aj compile skill
 AJ_HOME=$(mktemp -d) aj bench --gen migrate   --n 3   --compare --rollouts 3   # exploration-heavy (JIT worse)
-AJ_HOME=$(mktemp -d) aj bench --gen aksops    --n 3   --compare --rollouts 3   # SRE runbook (JIT +14%)
+AJ_HOME=$(mktemp -d) aj bench --gen aksops    --n 3   --compare --rollouts 6   # SRE runbook (JIT flaky: 2/6)
 ```
 
 Flags: `--tasks | --gen`, `--arm baseline|jit`, `--compare`, `--rollouts`, `--n` (curve),
