@@ -9,19 +9,30 @@
 
 ## TL;DR
 
-Across three repetition workflows — `nullcheck` (hand-written skill), `shellseq` (a **real `aj compile`**
-skill), and `migrate` (exploration-heavy) — giving the agent a skill produced **no meaningful token
-saving, and on the exploration-heavy shape it was ~25% WORSE** (the skill's context cost outweighed what
-it saved). All at 100% iso-accuracy. **Conclusion: "repetitive workflow → compile a skill" is not a safe
-default** — injecting a skill is not free, and for these Claude-Code-shaped tasks its context cost tends
-to swamp the savings.
+**Whether a compiled skill saves tokens depends on the *kind* of workflow — and the split is sharp.**
+Across four repetition workflows at 100% iso-accuracy:
 
-This is a *useful* result, not a disappointing one: the benchmark exists to answer "does a skill
-actually save tokens, and after how many uses does it pay off?" — and the honest, measured answer across
-these shapes is "no, and sometimes it hurts." It holds for a genuinely compiled skill, not just a
-hand-written stand-in. The methodology (measure at iso-accuracy from API-reported usage, never estimate)
-is what makes the answer trustworthy. The open question is whether a workflow with *much* larger
-per-episode work, or a skill that genuinely removes reading rather than guiding it, ever flips this.
+| shape | kind | skill source | per-use token delta |
+|---|---|---|---|
+| `nullcheck` | code-edit | hand-written | ~0% (−354 on ~236k) |
+| `shellseq` | trivial shell | real `aj compile` | ~0% (−19..35 on ~93k) |
+| `migrate` | code-edit (exploration) | hand-written | **−25% (JIT ~48k WORSE)** |
+| `aksops` | **SRE / tool-use** | **real `aj compile`** | **+14% (JIT ~47k BETTER)** |
+
+**The rule:** a **code-edit** skill can only *annotate* — the model still has to read and edit the files
+itself, so the skill is pure added context cost (net-negative on `migrate`). An **ops / tool-use** skill
+compiles to a **runnable script** the agent *invokes to do the work* (run the command sequence) instead
+of exploring and reasoning through each step — that genuinely replaces work, and it pays off (`aksops`,
++14%).
+
+**So "repetitive workflow → compile a skill" is not a safe default.** AgentJIT should preferentially
+compile repetitive **Bash / tool-use sequences** (the SRE runbooks its `GlobalCLITools` list already
+targets — `kubectl`, `az`, `docker`, `aws`, …) and be skeptical of code-edit patterns. The value is in
+replacing *execution*, not annotating *edits*.
+
+This is what the benchmark exists for: a trustworthy, measured answer (iso-accuracy, tokens from
+API-reported usage, never estimated) to "does a skill actually save tokens, and where?" — including the
+counterintuitive parts (a skill can make things *worse*).
 
 ## Method (as implemented)
 
@@ -134,12 +145,58 @@ cost tends to swamp what it saves — sometimes badly. "Repetitive workflow → 
 a safe default; the value case has to be targeted much more carefully (bigger per-episode work, or a
 skill that genuinely removes reading, not just guides it).
 
+## Update — SRE runbook `aksops` (2026-07-07): JIT PAYS OFF (+14%)
+
+`aksops` is the shape AgentJIT was actually designed for: a repetitive **operations runbook** —
+`az aks get-credentials` then `kubectl scale` / `rollout status` / `get pods`. It is Bash-shaped, so the
+**deterministic** compiler produces a real *runnable* skill script, and the JIT arm invokes it to *run
+the commands* rather than reasoning through each. (`az`/`kubectl` are mocked under `bin/` so the
+benchmark is hermetic — no cluster.)
+
+Measured at `--rollouts 3`, JIT skill from **real `aj compile`**:
+
+```
+aksops n=3:  baseline 332,620 (med 332,565)  vs  jit 285,391 (med 332,996)  →  saving +47,228/use (~14%)
+```
+
+Both 100% at iso-accuracy (both ran the full runbook). **This is the first positive result** — and it is
+the direct consequence of the mechanism found in the "why" investigation below: an ops skill *replaces*
+work, a code-edit skill only *annotates* it.
+
+*Caveat:* the JIT mean (285k) is below its median (333k) → real rollout variance; the **+14% direction is
+solid** but a tight figure needs more rollouts.
+
+## Why a code-edit skill doesn't save (traced)
+
+A JIT-arm `migrate` episode traced with `claude --output-format stream-json --verbose` did, in order:
+
+```
+1. Grep OldName   2. Glob **/*.go   3. Skill(migrate-oldname)   4-7. Read ×4   8-10. Edit ×3   11. Grep   12. Bash build
+```
+
+Three things make the skill pure overhead here: (1) the agent **explores before it opens the skill**
+(steps 1-2 precede step 3), so the skill can't prevent exploration that already happened; (2) it **reads
+every file anyway** (4-7) even though the skill named the exact lines — the skill *guided* but didn't
+*replace* reading; (3) invoking the Skill **loads its content into context** (added cost). Net: the JIT
+arm does everything the baseline does *plus* the skill → strictly more tokens.
+
+The ops case escapes all three because the skill is a **script to execute**, not a description to read.
+
+## A note on hermetic mocks changing behavior
+
+An early `aksops` run **failed**: the agent inspected the mock `az`/`kubectl`, realized they were stubs,
+and *refused to run them* ("they don't talk to any cluster … I'll pause here"). The fix was to make the
+mocks print realistic CLI output and phrase the task mechanically ("execute exactly as written"). Lesson:
+a too-obviously-fake hermetic mock can change what the agent decides to do, and skew a benchmark.
+
 ## Reproducing
 
 ```
 # isolated sandbox; real data untouched
 AJ_HOME=$(mktemp -d) aj bench --gen nullcheck --n 1,2 --compare --rollouts 3   # hand-written skill
 AJ_HOME=$(mktemp -d) aj bench --gen shellseq  --n 2,4 --compare --rollouts 3   # real aj compile skill
+AJ_HOME=$(mktemp -d) aj bench --gen migrate   --n 3   --compare --rollouts 3   # exploration-heavy (JIT worse)
+AJ_HOME=$(mktemp -d) aj bench --gen aksops    --n 3   --compare --rollouts 3   # SRE runbook (JIT +14%)
 ```
 
 Flags: `--tasks | --gen`, `--arm baseline|jit`, `--compare`, `--rollouts`, `--n` (curve),
