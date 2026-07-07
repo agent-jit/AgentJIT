@@ -163,15 +163,21 @@ func printComparison(c bench.Comparison, compileCost int) {
 
 // runGenCompare sweeps the repeat counts, regenerating a FRESH fixture for each
 // arm (baseline mutates the tree in place, so the JIT arm must not inherit it)
-// and installing the workflow skill for the JIT arm. Reports break-even per count.
+// and giving the JIT arm the workflow skill. Reports break-even per count.
+//
+// The JIT arm's skill comes from the real `aj compile` when the fixture is a
+// CompilableFixture (seed logs -> compile -> generated skill), otherwise from a
+// hand-written SkilledFixture skill. Compile cost defaults to what aj compile
+// actually spent (0 on the deterministic path) unless --compile-cost overrides.
 func runGenCompare(runner bench.Runner, shape string, counts []int, workdir string) error {
 	fixture, ok := bench.FixtureByShape(shape)
 	if !ok {
 		return fmt.Errorf("unknown --gen shape %q (have: %v)", shape, bench.FixtureShapes())
 	}
+	compilable, canCompile := fixture.(bench.CompilableFixture)
 	skilled, canSkill := fixture.(bench.SkilledFixture)
-	if !canSkill {
-		return fmt.Errorf("fixture %q has no skill to install; --gen --compare needs one", shape)
+	if !canCompile && !canSkill {
+		return fmt.Errorf("fixture %q has no skill for the JIT arm; --gen --compare needs one", shape)
 	}
 	if len(counts) == 0 {
 		counts = []int{3}
@@ -186,12 +192,25 @@ func runGenCompare(runner bench.Runner, shape string, counts []int, workdir stri
 		fmt.Printf("[AJ] Generated fixtures under %s\n", base)
 	}
 
-	// The JIT arm installs the skill before its episode.
+	// realCompileCost is captured by the JIT setup when using aj compile.
+	realCompileCost := 0
+	ajBin, _ := os.Executable() // this binary is `aj`
+
+	// The JIT arm gets the workflow skill before its episode: real compile when
+	// available (and record its true token cost), else the hand-written skill.
 	runner.Setup = func(task bench.Task, arm bench.Arm) error {
-		if arm == bench.ArmJIT {
-			return skilled.InstallSkill(task)
+		if arm != bench.ArmJIT {
+			return nil
 		}
-		return nil
+		if canCompile {
+			cost, err := bench.CompileSkill(context.Background(), ajBin, compilable, task)
+			if err != nil {
+				return err
+			}
+			realCompileCost = cost
+			return nil
+		}
+		return skilled.InstallSkill(task)
 	}
 
 	comparisons := make([]bench.Comparison, 0, len(counts))
@@ -211,8 +230,14 @@ func runGenCompare(runner bench.Runner, shape string, counts []int, workdir stri
 		jit.Task = baseline.Task
 		c := bench.Compare(baseline, jit)
 		comparisons = append(comparisons, c)
+		// Break-even uses an explicit --compile-cost, else the cost aj compile
+		// actually spent (captured by the JIT setup; 0 on the deterministic path).
+		cost := benchCompileCost
+		if cost == 0 {
+			cost = realCompileCost
+		}
 		if !benchJSON {
-			printComparison(c, benchCompileCost)
+			printComparison(c, cost)
 		}
 	}
 	if benchJSON {
