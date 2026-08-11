@@ -11,12 +11,18 @@
 
 **Across four repetition workflows, no compiled skill produced a *valid* token win at iso-accuracy.**
 
-| shape | kind | skill source | verified result |
-|---|---|---|---|
-| `nullcheck` | code-edit | hand-written | ~0% (−354 on ~236k), 100%/100% |
-| `shellseq` | trivial shell | real `aj compile` | ~0% (−19..35 on ~93k), 100%/100% |
-| `migrate` | code-edit (exploration) | hand-written | **−25% (JIT ~48k WORSE)**, 100%/100% |
-| `aksops` | SRE / tool-use | real `aj compile` | ~neutral (−5% mean / +7% median), 100%/100% — noisy, no clear win |
+| shape | kind | skill source | rollouts | verified result |
+|---|---|---|---|---|
+| `nullcheck` | code-edit | hand-written | **1 ⚠️** | ~0% (−354 on ~236k), 100%/100% — **single rollout, indicative only; do not cite the figure** |
+| `shellseq` | trivial shell | real `aj compile` | 3 | ~0% (−19..35 on ~93k), 100%/100% |
+| `migrate` | code-edit (exploration) | hand-written | 3 | **−25% (JIT ~48k WORSE)**, 100%/100% |
+| `aksops` | SRE / tool-use | real `aj compile` | **6** | ~neutral (−5% mean / +7% median), 100%/100% — noisy, no clear win |
+
+⚠️ **Provenance caveat (added 2026-08-12).** The `nullcheck` figure was measured at `--rollouts 1`, which
+this document elsewhere states is unreliable for A/B comparison (prompt-cache state carries across the two
+sequential episodes) — the same defect that led to retracting the `aksops` +14%. It is retained as an
+*indicative* data point only; **do not quote −354 as a measurement.** The headline conclusion does not depend
+on it: `shellseq` independently gives ~0% at 3 rollouts and `aksops` ~neutral at 6.
 
 **On `aksops` the apparent +14% was a small-sample artifact and is retracted.** At `--rollouts 3` the JIT
 arm happened to pass 3/3 and looked like a ~14% saving; at `--rollouts 6` it succeeded only **2/6**
@@ -76,10 +82,15 @@ positive claim (this one) before it becomes folklore.
 ## Result — `nullcheck` (n = 2)
 
 ```
-aj bench --gen nullcheck --n 2 --compare
+aj bench --gen nullcheck --n 2 --compare --rollouts 1     # ⚠️ ONE rollout — indicative only
   nullcheck-2:  baseline 100% / jit 100%   (iso-accuracy)
     T2S baseline 235,695  vs  jit 235,341   →  saving 354 tokens/use
 ```
+
+⚠️ **This was a single rollout.** See the provenance caveat in the TL;DR: at `--rollouts 1` the A/B is
+confounded by prompt-cache carryover between the two sequential episodes, so treat the direction (~no
+saving) as indicative and **do not quote the 354 figure as a measurement.** `shellseq` (3 rollouts)
+independently reproduces the ~0% result.
 
 Both arms verified (2 nil-guards added, package builds). Earlier single-arm baseline sweep:
 
@@ -158,11 +169,11 @@ project-local skill can be **net-negative even on an exploration-heavy task**.
 
 **Cross-shape summary (all at iso-accuracy):**
 
-| shape | skill source | per-use token delta |
-|---|---|---|
-| `nullcheck` | hand-written | ~0% (−354 tok on ~236k) |
-| `shellseq` | real `aj compile` | ~0% (−19..35 tok on ~93k) |
-| `migrate` | hand-written | **+25% (JIT ~48k MORE)** |
+| shape | skill source | rollouts | per-use token delta |
+|---|---|---|---|
+| `nullcheck` | hand-written | **1 ⚠️** | ~0% (−354 tok on ~236k) — indicative only, don't quote |
+| `shellseq` | real `aj compile` | 3 | ~0% (−19..35 tok on ~93k) |
+| `migrate` | hand-written | 3 | **+25% (JIT ~48k MORE)** |
 
 **Takeaway:** injecting a skill is not free, and for these Claude-Code-shaped tasks the skill's context
 cost tends to swamp what it saves — sometimes badly. "Repetitive workflow → compile a skill" is *not*
