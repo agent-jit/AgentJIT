@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/agent-jit/agentjit/internal/config"
 )
@@ -24,6 +25,7 @@ func CompileSkill(ctx context.Context, ajBin string, fx CompilableFixture, task 
 	if err != nil {
 		return 0, err
 	}
+	defer os.RemoveAll(ajHome)
 	paths := config.PathsFromRoot(ajHome)
 	if err := paths.EnsureDirs(); err != nil {
 		return 0, err
@@ -64,6 +66,11 @@ func CompileSkill(ctx context.Context, ajBin string, fx CompilableFixture, task 
 
 // copyTree recursively copies a directory tree.
 func copyTree(src, dst string) error {
+	var err error
+	src, err = filepath.Abs(src)
+	if err != nil { return err }
+	src, err = filepath.EvalSymlinks(src)
+	if err != nil { return err }
 	return filepath.Walk(src, func(p string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -73,9 +80,22 @@ func copyTree(src, dst string) error {
 			return err
 		}
 		target := filepath.Join(dst, rel)
+		if info.Mode()&os.ModeSymlink != 0 {
+			resolved, err := filepath.EvalSymlinks(p)
+			if err != nil { return err }
+			relTarget, err := filepath.Rel(src, resolved)
+			if err != nil { return err }
+			if relTarget == ".." || strings.HasPrefix(relTarget, ".."+string(filepath.Separator)) {
+				return fmt.Errorf("cannot isolate external symlink %s", p)
+			}
+			link, err := filepath.Rel(filepath.Dir(rel), relTarget)
+			if err != nil { return err }
+			return os.Symlink(link, target)
+		}
 		if info.IsDir() {
 			return os.MkdirAll(target, 0o755)
 		}
+		if !info.Mode().IsRegular() { return fmt.Errorf("unsupported file in fixture: %s", p) }
 		data, err := os.ReadFile(p)
 		if err != nil {
 			return err

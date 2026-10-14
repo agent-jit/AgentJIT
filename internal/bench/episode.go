@@ -13,6 +13,8 @@ import (
 // json` — the same envelope internal/compile parses. Tokens are read from the
 // API's reported usage, never estimated.
 type Usage struct {
+	// Unavailable means the runner could not obtain reported token usage.
+	Unavailable              bool    `json:"unavailable,omitempty"`
 	InputTokens              int     `json:"input_tokens"`
 	OutputTokens             int     `json:"output_tokens"`
 	CacheCreationInputTokens int     `json:"cache_creation_input_tokens"`
@@ -37,6 +39,7 @@ type AgentRunner interface {
 
 // claudeEnvelope is the JSON shape emitted by `claude --print --output-format json`.
 type claudeEnvelope struct {
+	IsError      bool    `json:"is_error"`
 	Result       string  `json:"result"`
 	TotalCostUSD float64 `json:"total_cost_usd"`
 	Usage        struct {
@@ -74,15 +77,13 @@ func (r ClaudeRunner) Run(ctx context.Context, task Task) (Usage, error) {
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return Usage{}, fmt.Errorf("running claude for task %s: %w", task.ID, err)
-	}
+	runErr := cmd.Run()
 
 	var env claudeEnvelope
 	if err := json.Unmarshal(stdout.Bytes(), &env); err != nil {
-		return Usage{}, fmt.Errorf("parsing claude output for task %s: %w", task.ID, err)
+		return Usage{Unavailable: true}, fmt.Errorf("parsing claude output for task %s (process error: %v): %w", task.ID, runErr, err)
 	}
-	return Usage{
+	u := Usage{
 		InputTokens:              env.Usage.InputTokens,
 		OutputTokens:             env.Usage.OutputTokens,
 		CacheCreationInputTokens: env.Usage.CacheCreationInputTokens,
@@ -90,5 +91,18 @@ func (r ClaudeRunner) Run(ctx context.Context, task Task) (Usage, error) {
 		TotalCostUSD:             env.TotalCostUSD,
 		NumTurns:                 env.NumTurns,
 		DurationMs:               env.DurationMs,
-	}, nil
+	}
+	var fields map[string]json.RawMessage
+	_ = json.Unmarshal(stdout.Bytes(), &fields)
+	u.Unavailable = len(fields["usage"]) == 0 || string(fields["usage"]) == "null"
+	if runErr != nil {
+		return u, fmt.Errorf("running claude for task %s: %w", task.ID, runErr)
+	}
+	if env.IsError {
+		return u, fmt.Errorf("claude task %s failed: %s", task.ID, env.Result)
+	}
+	if u.Unavailable {
+		return u, fmt.Errorf("claude task %s returned no usage", task.ID)
+	}
+	return u, nil
 }
