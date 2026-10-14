@@ -87,7 +87,7 @@ func (rn Runner) RunTask(ctx context.Context, task Task, arm Arm, n int) TaskRes
 	if err != nil {
 		return fail(err)
 	}
-	defer os.RemoveAll(root)
+	defer cleanupTempDir(root)
 	src := task.RepoDir
 	if src == "" {
 		src, err = os.Getwd()
@@ -120,7 +120,7 @@ func (rn Runner) RunTask(ctx context.Context, task Task, arm Arm, n int) TaskRes
 		}
 		// Cleanup before the next attempt, including failed attempts.
 		run := func() {
-			defer os.RemoveAll(episode.RepoDir)
+			defer cleanupTempDir(episode.RepoDir)
 
 			usage, err := rn.Agent.Run(ctx, episode)
 			rollout.Usage = usage

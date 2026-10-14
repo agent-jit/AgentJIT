@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,7 +26,7 @@ func CompileSkill(ctx context.Context, ajBin string, fx CompilableFixture, task 
 	if err != nil {
 		return 0, err
 	}
-	defer os.RemoveAll(ajHome)
+	defer cleanupTempDir(ajHome)
 	paths := config.PathsFromRoot(ajHome)
 	if err := paths.EnsureDirs(); err != nil {
 		return 0, err
@@ -62,6 +63,14 @@ func CompileSkill(ctx context.Context, ajBin string, fx CompilableFixture, task 
 		return 0, err
 	}
 	return cost, nil
+}
+
+// Cleanup is best-effort: report failures without replacing the episode or
+// compilation result. Every subsequent rollout uses a new directory.
+func cleanupTempDir(path string) {
+	if err := os.RemoveAll(path); err != nil {
+		log.Printf("[AJ] removing temporary directory %s: %v", path, err)
+	}
 }
 
 // copyTree recursively copies a directory tree.

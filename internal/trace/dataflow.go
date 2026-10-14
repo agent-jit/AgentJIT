@@ -75,8 +75,7 @@ func DetectDataFlowEdges(g *TraceGraph, events []ingest.Event, windowSize int) {
 				continue
 			}
 
-			shapeB := InputShape(eventB.ToolName, eventB.ToolInput)
-			idB := NodeID(eventB.ToolName, shapeB)
+			idB := g.EventNodeID(eventB)
 
 			start := i - windowSize
 			if start < 0 {
@@ -105,8 +104,7 @@ func DetectDataFlowEdges(g *TraceGraph, events []ingest.Event, windowSize int) {
 					continue
 				}
 
-				shapeA := InputShape(eventA.ToolName, eventA.ToolInput)
-				idA := NodeID(eventA.ToolName, shapeA)
+				idA := g.EventNodeID(eventA)
 
 				if adj, ok := g.Edges[idA]; ok {
 					if edge, ok := adj[idB]; ok {

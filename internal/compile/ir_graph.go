@@ -13,6 +13,16 @@ func BuildGraphWithIR(events []ingest.Event, matcher *ir.Matcher) *trace.TraceGr
 	g := &trace.TraceGraph{
 		Nodes: make(map[uint64]*trace.Node),
 		Edges: make(map[uint64]map[uint64]*trace.Edge),
+		ResolveNodeID: func(event ingest.Event) uint64 {
+			if event.ToolName == "Bash" {
+				if cmd, ok := event.ToolInput["command"].(string); ok {
+					if match := matcher.Match(trace.PreprocessBashCommand(cmd)); match != nil {
+						return match.IRNodeID()
+					}
+				}
+			}
+			return trace.NodeID(event.ToolName, trace.InputShape(event.ToolName, event.ToolInput))
+		},
 	}
 
 	sessions := make(map[string][]ingest.Event)

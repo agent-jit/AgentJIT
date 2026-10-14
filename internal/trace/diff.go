@@ -74,7 +74,7 @@ func parameterizeHotPath(hp HotPath, bySession map[string][]ingest.Event, g *Tra
 		var instances []map[string]interface{}
 		for _, sid := range hp.SessionIDs {
 			sessionEvents := bySession[sid]
-			if event := findNthMatchingEvent(sessionEvents, stepIdx, hp.NodeIDs); event != nil {
+			if event := findNthMatchingEvent(sessionEvents, stepIdx, hp.NodeIDs, g); event != nil {
 				instances = append(instances, event.ToolInput)
 			}
 		}
@@ -102,12 +102,11 @@ func parameterizeHotPath(hp HotPath, bySession map[string][]ingest.Event, g *Tra
 // extra events whose NodeID matches a path step, the greedy match may bind
 // the wrong event instance, producing slightly off parameter values. This is
 // acceptable for the current use case where sessions closely follow the pattern.
-func findNthMatchingEvent(sessionEvents []ingest.Event, stepIdx int, pathNodeIDs []uint64) *ingest.Event {
+func findNthMatchingEvent(sessionEvents []ingest.Event, stepIdx int, pathNodeIDs []uint64, g *TraceGraph) *ingest.Event {
 	matchIdx := 0
 	for i := range sessionEvents {
 		e := &sessionEvents[i]
-		shape := InputShape(e.ToolName, e.ToolInput)
-		id := NodeID(e.ToolName, shape)
+		id := g.EventNodeID(*e)
 
 		if matchIdx < len(pathNodeIDs) && id == pathNodeIDs[matchIdx] {
 			if matchIdx == stepIdx {
