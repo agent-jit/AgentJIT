@@ -27,6 +27,16 @@ type Edge struct {
 type TraceGraph struct {
 	Nodes map[uint64]*Node
 	Edges map[uint64]map[uint64]*Edge // adjacency list: from -> to -> edge
+	// ResolveNodeID preserves a custom graph builder's identity scheme (e.g. IR).
+	// Consumers must use EventNodeID rather than recomputing lexical IDs.
+	ResolveNodeID func(ingest.Event) uint64
+}
+
+func (g *TraceGraph) EventNodeID(event ingest.Event) uint64 {
+	if g.ResolveNodeID != nil {
+		return g.ResolveNodeID(event)
+	}
+	return NodeID(event.ToolName, InputShape(event.ToolName, event.ToolInput))
 }
 
 // BuildGraph constructs a TraceGraph from a flat list of events.

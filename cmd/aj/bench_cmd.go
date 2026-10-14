@@ -142,14 +142,12 @@ func printComparison(c bench.Comparison, compileCost int) {
 		fmt.Printf(" [%s]", c.Shape)
 	}
 	fmt.Printf(": baseline %.0f%% / jit %.0f%%", c.BaselineSuccess*100, c.JITSuccess*100)
+	fmt.Printf("\n     all attempts: tokens %d / %d, USD %.6f / %.6f", c.BaselineTotalTokens, c.JITTotalTokens, c.BaselineTotalCostUSD, c.JITTotalCostUSD)
 	if !c.Comparable {
-		fmt.Println(" — not comparable (an arm had no verified rollout)")
+		fmt.Println(" — no savings/break-even claim (requires verified successes, equal success rates and complete usage)")
 		return
 	}
-	if !c.IsoAccuracy {
-		fmt.Print(" — WARN: success differs, token comparison not iso-accuracy")
-	}
-	fmt.Printf("\n     T2S baseline %.0f (med %.0f) vs jit %.0f (med %.0f), saving %.0f/use",
+	fmt.Printf("\n     successful-only T2S baseline %.0f (med %.0f) vs jit %.0f (med %.0f), all-attempt saving %.0f/use",
 		c.Baseline.Mean, c.Baseline.Median, c.JIT.Mean, c.JIT.Median, c.PerInvocationSaving)
 	if compileCost > 0 {
 		if be, ok := c.BreakEven(compileCost); ok {

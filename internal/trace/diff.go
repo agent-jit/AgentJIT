@@ -49,7 +49,9 @@ func Parameterize(hotPaths []HotPath, events []ingest.Event, g *TraceGraph) []Pa
 	var patterns []Pattern
 	for _, hp := range hotPaths {
 		p := parameterizeHotPath(hp, bySession, g)
-		patterns = append(patterns, p)
+		if len(p.Steps) == len(hp.NodeIDs) {
+			patterns = append(patterns, p)
+		}
 	}
 	return patterns
 }
@@ -72,13 +74,16 @@ func parameterizeHotPath(hp HotPath, bySession map[string][]ingest.Event, g *Tra
 		var instances []map[string]interface{}
 		for _, sid := range hp.SessionIDs {
 			sessionEvents := bySession[sid]
-			if event := findNthMatchingEvent(sessionEvents, stepIdx, hp.NodeIDs); event != nil {
+			if event := findNthMatchingEvent(sessionEvents, stepIdx, hp.NodeIDs, g); event != nil {
 				instances = append(instances, event.ToolInput)
 			}
 		}
 
 		if node.ToolName == "Bash" {
 			step.Template, step.Parameters = diffBashInstances(instances)
+			if step.Template == "" {
+				return Pattern{}
+			}
 		} else {
 			step.Template = node.ToolName + " call"
 		}
@@ -97,12 +102,11 @@ func parameterizeHotPath(hp HotPath, bySession map[string][]ingest.Event, g *Tra
 // extra events whose NodeID matches a path step, the greedy match may bind
 // the wrong event instance, producing slightly off parameter values. This is
 // acceptable for the current use case where sessions closely follow the pattern.
-func findNthMatchingEvent(sessionEvents []ingest.Event, stepIdx int, pathNodeIDs []uint64) *ingest.Event {
+func findNthMatchingEvent(sessionEvents []ingest.Event, stepIdx int, pathNodeIDs []uint64, g *TraceGraph) *ingest.Event {
 	matchIdx := 0
 	for i := range sessionEvents {
 		e := &sessionEvents[i]
-		shape := InputShape(e.ToolName, e.ToolInput)
-		id := NodeID(e.ToolName, shape)
+		id := g.EventNodeID(*e)
 
 		if matchIdx < len(pathNodeIDs) && id == pathNodeIDs[matchIdx] {
 			if matchIdx == stepIdx {
@@ -115,18 +119,38 @@ func findNthMatchingEvent(sessionEvents []ingest.Event, stepIdx int, pathNodeIDs
 }
 
 // diffBashInstances compares multiple Bash command instances and extracts parameters.
-// It tokenizes each instance using TokenizeBashCommand for consistency with InputShape,
-// then compares tokens positionally to find variable positions.
+// It preserves identical source verbatim and parameterizes literal arguments
+// in simple commands. An empty template means the pattern must be declined.
 func diffBashInstances(instances []map[string]interface{}) (string, []Parameter) {
 	if len(instances) == 0 {
 		return "", nil
 	}
 
-	// Tokenize all instances using TokenizeBashCommand for consistent splitting.
+	first, _ := instances[0]["command"].(string)
+	identical := true
+	for _, inst := range instances[1:] {
+		if inst["command"] != first {
+			identical = false
+		}
+	}
+	if identical {
+		return first, nil
+	}
+	// Fingerprint tokens deliberately discard shell syntax. Never emit them as
+	// source: parameterize only literal simple commands, keeping original spans.
 	var tokenSets [][]Token
+	var wordSets [][]shellWord
 	for _, inst := range instances {
 		cmd, _ := inst["command"].(string)
-		tokens := TokenizeBashCommand(cmd)
+		words, ok := literalShellWords(cmd)
+		if !ok {
+			return "", nil
+		}
+		wordSets = append(wordSets, words)
+		var tokens []Token
+		for _, w := range words {
+			tokens = append(tokens, Token{Value: w.value})
+		}
 		tokenSets = append(tokenSets, tokens)
 	}
 
@@ -134,14 +158,14 @@ func diffBashInstances(instances []map[string]interface{}) (string, []Parameter)
 	refLen := len(tokenSets[0])
 	for _, ts := range tokenSets[1:] {
 		if len(ts) != refLen {
-			// Length mismatch -- fall back to literal first instance.
-			cmd, _ := instances[0]["command"].(string)
-			return cmd, nil
+			return "", nil
 		}
 	}
 
 	var params []Parameter
-	var templateParts []string
+	var template strings.Builder
+	end := 0
+	usedNames := make(map[string]bool)
 	argCounter := 0
 
 	for pos := 0; pos < refLen; pos++ {
@@ -155,12 +179,18 @@ func diffBashInstances(instances []map[string]interface{}) (string, []Parameter)
 			}
 		}
 
-		if allSame {
-			templateParts = append(templateParts, ref)
-		} else {
+		if !allSame {
+			if pos == 0 {
+				return "", nil
+			}
 			// Extract parameter.
 			name := inferParamName(tokenSets[0], pos, argCounter)
 			argCounter++
+			base := name
+			for suffix := 2; usedNames[name]; suffix++ {
+				name = fmt.Sprintf("%s_%d", base, suffix)
+			}
+			usedNames[name] = true
 
 			var values []string
 			for _, ts := range tokenSets {
@@ -172,11 +202,15 @@ func diffBashInstances(instances []map[string]interface{}) (string, []Parameter)
 				Position: pos,
 				Values:   values,
 			})
-			templateParts = append(templateParts, "$"+name)
+			w := wordSets[0][pos]
+			template.WriteString(first[end:w.start])
+			template.WriteString("\"$" + name + "\"")
+			end = w.end
 		}
 	}
 
-	return strings.Join(templateParts, " "), params
+	template.WriteString(first[end:])
+	return template.String(), params
 }
 
 // CollectUniqueParams gathers unique parameters across all steps, preserving order.

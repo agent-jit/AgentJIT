@@ -2,6 +2,8 @@ package bench
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 )
 
 // RolloutResult is the outcome of a single agent episode on a task.
@@ -69,39 +71,72 @@ type Runner struct {
 	Setup func(task Task, arm Arm) error
 }
 
-// RunTask runs a task under one arm for n rollouts, gating each on the verifier.
+// RunTask snapshots the task, runs Setup once on that snapshot, and gives each
+// rollout a fresh copy. Agent and verifier share the episode's working tree.
 // A rollout whose episode or verifier errors is recorded with Err set and
 // Verified=false; it never counts toward tokens-to-success.
 func (rn Runner) RunTask(ctx context.Context, task Task, arm Arm, n int) TaskResult {
 	res := TaskResult{Task: task.ID, Arm: arm, Shape: task.Shape}
+	fail := func(err error) TaskResult {
+		for i := 0; i < n; i++ {
+			res.Rollouts = append(res.Rollouts, RolloutResult{Task: task.ID, Arm: arm, Index: i, Err: "setup: " + err.Error()})
+		}
+		return res
+	}
+	root, err := os.MkdirTemp("", "aj-bench-")
+	if err != nil {
+		return fail(err)
+	}
+	defer cleanupTempDir(root)
+	src := task.RepoDir
+	if src == "" {
+		src, err = os.Getwd()
+		if err != nil {
+			return fail(err)
+		}
+	}
+	task.RepoDir = filepath.Join(root, "seed")
+	if err := copyTree(src, task.RepoDir); err != nil {
+		return fail(err)
+	}
 	if rn.Setup != nil {
 		if err := rn.Setup(task, arm); err != nil {
-			for i := 0; i < n; i++ {
-				res.Rollouts = append(res.Rollouts, RolloutResult{
-					Task: task.ID, Arm: arm, Index: i, Err: "setup: " + err.Error(),
-				})
-			}
-			return res
+			return fail(err)
 		}
 	}
 	for i := 0; i < n; i++ {
 		rollout := RolloutResult{Task: task.ID, Arm: arm, Index: i}
-
-		usage, err := rn.Agent.Run(ctx, task)
+		episode := task
+		episode.RepoDir, err = os.MkdirTemp(root, "episode-")
 		if err != nil {
-			rollout.Err = err.Error()
+			rollout.Err = "create episode: " + err.Error()
 			res.Rollouts = append(res.Rollouts, rollout)
 			continue
 		}
-		rollout.Usage = usage
-
-		ok, err := rn.Verifier.Verify(ctx, task)
-		if err != nil {
-			rollout.Err = err.Error()
+		if err := copyTree(task.RepoDir, episode.RepoDir); err != nil {
+			rollout.Err = "copy episode: " + err.Error()
 			res.Rollouts = append(res.Rollouts, rollout)
 			continue
 		}
-		rollout.Verified = ok
+		// Cleanup before the next attempt, including failed attempts.
+		run := func() {
+			defer cleanupTempDir(episode.RepoDir)
+
+			usage, err := rn.Agent.Run(ctx, episode)
+			rollout.Usage = usage
+			if err != nil {
+				rollout.Err = err.Error()
+				return
+			}
+
+			ok, err := rn.Verifier.Verify(ctx, episode)
+			if err != nil {
+				rollout.Err = err.Error()
+				return
+			}
+			rollout.Verified = ok
+		}
+		run()
 		res.Rollouts = append(res.Rollouts, rollout)
 	}
 	return res
