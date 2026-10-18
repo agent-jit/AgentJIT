@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/agent-jit/agentjit/internal/ingest"
@@ -151,14 +152,11 @@ func (f AKSOpsFixture) Generate(dir string, n int) (Task, error) {
 
 	cmds := f.commands(n)
 	// Verifier: ops.log recorded all 4 steps, in order, with the right replicas.
-	replicas := 2 + n
-	verify := fmt.Sprintf(
-		`test -f ops.log `+
-			`&& grep -q 'az aks get-credentials --name prod' ops.log `+
-			`&& grep -q 'kubectl scale deployment/web --replicas=%d' ops.log `+
-			`&& grep -q 'kubectl rollout status deployment/web' ops.log `+
-			`&& grep -q 'kubectl get pods -o wide' ops.log`,
-		replicas)
+	expected := ""
+	for _, cmd := range cmds {
+		expected += strings.TrimPrefix(cmd, "./bin/") + "\n"
+	}
+	verify := "printf '%s' '" + expected + "' | cmp -s - ops.log"
 
 	return Task{
 		ID:      fmt.Sprintf("aksops-%d", n),
@@ -172,6 +170,7 @@ func (f AKSOpsFixture) Generate(dir string, n int) (Task, error) {
 				"exactly as written, from this directory. Running them IS the deliverable — do "+
 				"not skip any because they are simulated. After running all of them, stop.\n%s",
 			joinLines(cmds)),
-		Verify: Verification{Command: []string{"sh", "-c", verify}},
+		ResultFiles: []string{"ops.log"},
+		Verify:      Verification{Command: []string{"sh", "-c", verify}},
 	}, nil
 }

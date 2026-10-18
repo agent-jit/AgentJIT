@@ -99,6 +99,12 @@ func (f ShellSeqFixture) Generate(dir string, n int) (Task, error) {
 	verifyScript := fmt.Sprintf(
 		`test "$(ls out/marker*.txt 2>/dev/null | wc -l | tr -d '[:space:]')" = "%d"`, n)
 
+	var resultFiles []string
+	for i := 0; i < n; i++ {
+		name := fmt.Sprintf("out/marker%d.txt", i)
+		resultFiles = append(resultFiles, name)
+		verifyScript += fmt.Sprintf(" && test -f %s && test ! -s %s", name, name)
+	}
 	cmds := f.commands(n)
 	return Task{
 		ID:      fmt.Sprintf("shellseq-%d", n),
@@ -108,7 +114,8 @@ func (f ShellSeqFixture) Generate(dir string, n int) (Task, error) {
 			"In this directory, create an `out/` directory and %d empty marker files "+
 				"named out/marker0.txt .. out/marker%d.txt. The exact command sequence is:\n%s",
 			n, n-1, joinLines(cmds)),
-		Verify: Verification{Command: []string{"sh", "-c", verifyScript}},
+		ResultFiles: resultFiles,
+		Verify:      Verification{Command: []string{"sh", "-c", verifyScript}},
 	}, nil
 }
 

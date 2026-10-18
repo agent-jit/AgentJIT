@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -89,5 +90,27 @@ func TestAKSOpsCompileSkill(t *testing.T) {
 	script := filepath.Join(task.RepoDir, ".claude", "skills", fx.SkillName(), "scripts", fx.SkillName()+".sh")
 	if _, err := os.Stat(script); err != nil {
 		t.Errorf("compiled runbook skill not installed at %s: %v", script, err)
+	}
+}
+
+func TestAKSOpsRejectsWrongOrderAndArguments(t *testing.T) {
+	task, err := (AKSOpsFixture{}).Generate(t.TempDir(), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	correct := "az aks get-credentials --name prod --resource-group rg\nkubectl scale deployment/web --replicas=4\nkubectl rollout status deployment/web\nkubectl get pods -o wide\n"
+	for _, log := range []string{
+		"kubectl get pods -o wide\n" + correct,
+		strings.Replace(correct, "--resource-group rg", "--resource-group wrong", 1),
+		strings.Replace(correct, "--replicas=4", "--replicas=40", 1),
+		"kubectl scale deployment/web --replicas=4\naz aks get-credentials --name prod --resource-group rg\nkubectl rollout status deployment/web\nkubectl get pods -o wide\n",
+	} {
+		if err := os.WriteFile(filepath.Join(task.RepoDir, "ops.log"), []byte(log), 0600); err != nil {
+			t.Fatal(err)
+		}
+		ok, err := (CommandVerifier{}).Verify(context.Background(), task)
+		if err != nil || ok {
+			t.Fatalf("accepted wrong runbook %q: %v", log, err)
+		}
 	}
 }

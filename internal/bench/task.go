@@ -27,6 +27,9 @@ type Task struct {
 	GitSHA string `json:"git_sha,omitempty"`
 	// Verify declares how to check that a rollout produced a correct result.
 	Verify Verification `json:"verify"`
+	// ResultFiles is an optional ordered list of relative regular files whose
+	// names and contents define semantic output stability (not agent prose).
+	ResultFiles []string `json:"result_files,omitempty"`
 	// Shape groups tasks of the same structural form, so break-even and compile
 	// cost can be stratified by shape rather than averaged globally.
 	Shape string `json:"shape,omitempty"`
