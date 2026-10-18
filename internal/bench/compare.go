@@ -55,19 +55,27 @@ func median(sorted []int) float64 {
 // are computed at iso-accuracy: if either arm never verified, there is no valid
 // per-invocation saving to report.
 type Comparison struct {
-	Task  string `json:"task"`
-	Shape string `json:"shape,omitempty"`
+	Task            string  `json:"task"`
+	BaselineMetrics Metrics `json:"baseline_metrics"`
+	JITMetrics      Metrics `json:"jit_metrics"`
+	// Preserve per-attempt data, setup cost and failures for independent analysis.
+	BaselineResult TaskResult `json:"baseline_result"`
+	JITResult      TaskResult `json:"jit_result"`
+	// Descriptive only: equal observed accuracy is not statistical equivalence.
+	LatencyComparable bool     `json:"latency_comparable"`
+	WallMeanSavingMS  *float64 `json:"wall_mean_saving_ms,omitempty"`
+	Shape             string   `json:"shape,omitempty"`
 
 	BaselineSuccess float64 `json:"baseline_success"`
 	JITSuccess      float64 `json:"jit_success"`
 
-	Baseline Distribution `json:"baseline_t2s"`
-	JIT      Distribution `json:"jit_t2s"`
-	BaselineTotalTokens int `json:"baseline_total_tokens"`
-	JITTotalTokens int `json:"jit_total_tokens"`
-	BaselineTotalCostUSD float64 `json:"baseline_total_cost_usd"`
-	JITTotalCostUSD float64 `json:"jit_total_cost_usd"`
-	UsageComplete bool `json:"usage_complete"`
+	Baseline             Distribution `json:"baseline_t2s"`
+	JIT                  Distribution `json:"jit_t2s"`
+	BaselineTotalTokens  int          `json:"baseline_total_tokens"`
+	JITTotalTokens       int          `json:"jit_total_tokens"`
+	BaselineTotalCostUSD float64      `json:"baseline_total_cost_usd"`
+	JITTotalCostUSD      float64      `json:"jit_total_cost_usd"`
+	UsageComplete        bool         `json:"usage_complete"`
 
 	// PerInvocationSaving = baseline mean attempt tokens − JIT mean attempt tokens (positive => JIT is
 	// cheaper). Valid only when Comparable is true.
@@ -82,22 +90,28 @@ type Comparison struct {
 // Compare builds a Comparison from a baseline and JIT TaskResult for one task.
 func Compare(baseline, jit TaskResult) Comparison {
 	c := Comparison{
+		BaselineMetrics: baseline.Metrics(), JITMetrics: jit.Metrics(),
+		BaselineResult: baseline, JITResult: jit,
 		Task:            baseline.Task,
 		Shape:           baseline.Shape,
 		BaselineSuccess: baseline.SuccessRate(),
 		JITSuccess:      jit.SuccessRate(),
 		IsoAccuracy:     baseline.SuccessRate() == jit.SuccessRate(),
-		UsageComplete: true,
+		UsageComplete:   true,
 	}
 	for _, r := range baseline.Rollouts {
 		c.BaselineTotalTokens += r.Usage.TotalTokens()
 		c.BaselineTotalCostUSD += r.Usage.TotalCostUSD
-		if r.Usage.Unavailable || (r.Err != "" && r.Usage.TotalTokens() == 0) { c.UsageComplete = false }
+		if r.Usage.Unavailable || (r.Err != "" && r.Usage.TotalTokens() == 0) {
+			c.UsageComplete = false
+		}
 	}
 	for _, r := range jit.Rollouts {
 		c.JITTotalTokens += r.Usage.TotalTokens()
 		c.JITTotalCostUSD += r.Usage.TotalCostUSD
-		if r.Usage.Unavailable || (r.Err != "" && r.Usage.TotalTokens() == 0) { c.UsageComplete = false }
+		if r.Usage.Unavailable || (r.Err != "" && r.Usage.TotalTokens() == 0) {
+			c.UsageComplete = false
+		}
 	}
 	bDist, bOK := baseline.T2SDistribution()
 	jDist, jOK := jit.T2SDistribution()
@@ -106,6 +120,11 @@ func Compare(baseline, jit TaskResult) Comparison {
 	if bOK && jOK && c.IsoAccuracy && c.UsageComplete {
 		c.Comparable = true
 		c.PerInvocationSaving = float64(c.BaselineTotalTokens)/float64(len(baseline.Rollouts)) - float64(c.JITTotalTokens)/float64(len(jit.Rollouts))
+	}
+	c.LatencyComparable = bOK && jOK && c.IsoAccuracy && len(baseline.Rollouts) == len(jit.Rollouts) && c.BaselineMetrics.Wall.N == len(baseline.Rollouts) && c.JITMetrics.Wall.N == len(jit.Rollouts)
+	if c.LatencyComparable {
+		delta := c.BaselineMetrics.Wall.Mean - c.JITMetrics.Wall.Mean
+		c.WallMeanSavingMS = &delta
 	}
 	return c
 }

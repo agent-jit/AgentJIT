@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/agent-jit/agentjit/internal/bench"
 	"github.com/agent-jit/agentjit/internal/config"
@@ -24,6 +25,7 @@ var (
 	benchGen         string
 	benchN           []int
 	benchWorkdir     string
+	benchTimeout     time.Duration
 )
 
 var benchCmd = &cobra.Command{
@@ -52,7 +54,13 @@ var benchCmd = &cobra.Command{
 		if benchDryRun {
 			agent = dryRunAgent{}
 		}
-		runner := bench.Runner{Agent: agent, Verifier: bench.CommandVerifier{}}
+		if benchTimeout <= 0 {
+			return fmt.Errorf("--timeout must be positive")
+		}
+		if benchRollouts < 20 {
+			fmt.Fprintln(os.Stderr, "[AJ] WARNING: fewer than 20 rollouts per arm; p95 and reliability estimates are exploratory")
+		}
+		runner := bench.Runner{Agent: agent, Verifier: bench.CommandVerifier{}, Timeout: benchTimeout}
 
 		// --gen --compare regenerates a fresh fixture per arm (baseline mutates
 		// the tree, so the JIT arm must start clean) and installs the skill for
@@ -120,8 +128,10 @@ func runCompare(runner bench.Runner, tasks []bench.Task) error {
 
 	comparisons := make([]bench.Comparison, 0, len(tasks))
 	for _, task := range tasks {
-		baseline := runner.RunTask(context.Background(), task, bench.ArmBaseline, benchRollouts)
-		jit := runner.RunTask(context.Background(), task, bench.ArmJIT, benchRollouts)
+		baseline, jit, err := runner.RunPaired(context.Background(), task, task, benchRollouts)
+		if err != nil {
+			return err
+		}
 		c := bench.Compare(baseline, jit)
 		comparisons = append(comparisons, c)
 		if !benchJSON {
@@ -143,6 +153,15 @@ func printComparison(c bench.Comparison, compileCost int) {
 	}
 	fmt.Printf(": baseline %.0f%% / jit %.0f%%", c.BaselineSuccess*100, c.JITSuccess*100)
 	fmt.Printf("\n     all attempts: tokens %d / %d, USD %.6f / %.6f", c.BaselineTotalTokens, c.JITTotalTokens, c.BaselineTotalCostUSD, c.JITTotalCostUSD)
+	fmt.Println()
+	printMetrics("baseline", c.BaselineMetrics)
+	printMetrics("jit", c.JITMetrics)
+	fmt.Printf("     setup ms baseline %.2f / jit %.2f (excluded from episode latency)\n", c.BaselineResult.SetupMS, c.JITResult.SetupMS)
+	if c.LatencyComparable {
+		fmt.Printf("     observed all-attempt wall mean saving %.2f ms/use (descriptive, not evidence of a win)\n", *c.WallMeanSavingMS)
+	} else {
+		fmt.Println("     no latency saving claim: need equal observed accuracy, successful tasks and complete paired timing")
+	}
 	if !c.Comparable {
 		fmt.Println(" — no savings/break-even claim (requires verified successes, equal success rates and complete usage)")
 		return
@@ -187,7 +206,7 @@ func runGenCompare(runner bench.Runner, shape string, counts []int, workdir stri
 			return err
 		}
 		base = dir
-		fmt.Printf("[AJ] Generated fixtures under %s\n", base)
+		fmt.Fprintf(os.Stderr, "[AJ] Generated fixtures under %s\n", base)
 	}
 
 	// realCompileCost is captured by the JIT setup when using aj compile.
@@ -222,8 +241,10 @@ func runGenCompare(runner bench.Runner, shape string, counts []int, workdir stri
 		if err != nil {
 			return err
 		}
-		baseline := runner.RunTask(context.Background(), baseTask, bench.ArmBaseline, benchRollouts)
-		jit := runner.RunTask(context.Background(), jitTask, bench.ArmJIT, benchRollouts)
+		baseline, jit, err := runner.RunPaired(context.Background(), baseTask, jitTask, benchRollouts)
+		if err != nil {
+			return err
+		}
 		// Compare wants matching task IDs; both were generated at the same count.
 		jit.Task = baseline.Task
 		c := bench.Compare(baseline, jit)
@@ -272,7 +293,7 @@ func generateTasks(shape string, counts []int, workdir string) ([]bench.Task, er
 			return nil, err
 		}
 		workdir = dir
-		fmt.Printf("[AJ] Generated fixtures under %s\n", workdir)
+		fmt.Fprintf(os.Stderr, "[AJ] Generated fixtures under %s\n", workdir)
 	}
 
 	tasks := make([]bench.Task, 0, len(counts))
@@ -299,7 +320,17 @@ func modelArgs(model string) []string {
 	return []string{"--model", model}
 }
 
+func printMetrics(label string, m bench.Metrics) {
+	r := m.Reliability
+	fmt.Printf("     %s: success %d/%d, Wilson95 [%.1f%%, %.1f%%], failures %v\n", label, r.Successes, r.Attempts, 100*r.SuccessLow, 100*r.SuccessHigh, r.Failures)
+	fmt.Printf("       wall ms (all started, n=%d): mean %.2f p50 %.2f p95 %.2f; successful-only n=%d p50 %.2f p95 %.2f\n", m.Wall.N, m.Wall.Mean, m.Wall.P50, m.Wall.P95, m.SuccessfulWall.N, m.SuccessfulWall.P50, m.SuccessfulWall.P95)
+	if r.ResultAgreement != nil {
+		fmt.Printf("       result agreement %.1f%% (%d fingerprinted successes, %d distinct results)\n", *r.ResultAgreement*100, r.FingerprintedSuccesses, r.DistinctResults)
+	}
+}
+
 func printTaskResult(res bench.TaskResult) {
+	defer printMetrics(string(res.Arm), res.Metrics())
 	mean, ok := res.MeanTokensToSuccess()
 	if ok {
 		fmt.Printf("success %.0f%%, T2S %.0f tokens\n", res.SuccessRate()*100, mean)
@@ -317,6 +348,7 @@ func (dryRunAgent) Run(context.Context, bench.Task) (bench.Usage, error) {
 }
 
 func init() {
+	benchCmd.Flags().DurationVar(&benchTimeout, "timeout", 10*time.Minute, "Deadline per attempt (agent plus verification)")
 	benchCmd.Flags().StringVar(&benchTasksFile, "tasks", "", "Path to a JSONL task suite")
 	benchCmd.Flags().StringVar(&benchArm, "arm", string(bench.ArmBaseline), "Arm to run: baseline or jit")
 	benchCmd.Flags().IntVar(&benchRollouts, "rollouts", 3, "Rollouts per task (averaged)")
